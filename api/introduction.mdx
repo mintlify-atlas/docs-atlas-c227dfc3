@@ -67,6 +67,67 @@ Screenpipe captures and indexes multiple types of content:
 - **UI**: UI element text from accessibility APIs
 - **Input**: User input events (clicks, keystrokes, clipboard)
 
+## All Available Endpoints
+
+### Core Search & Retrieval
+- `GET /search` - Search screen and audio content ([details](/api/search))
+- `GET /search/keyword` - Keyword-based search
+- `GET /frames/{frame_id}` - Get frame image ([details](/api/frames))
+- `GET /frames/{frame_id}/ocr` - Get OCR text with positions
+- `GET /frames/{frame_id}/metadata` - Get frame metadata
+- `GET /frames/next-valid` - Find next valid frame
+
+### Health & Monitoring
+- `GET /health` - System health check ([details](/api/health))
+- `GET /vision/status` - Vision pipeline status
+- `GET /vision/metrics` - Vision processing metrics
+- `GET /audio/metrics` - Audio processing metrics
+
+### Device Management
+- `GET /audio/list` - List audio devices ([details](/api/audio))
+- `GET /vision/list` - List video capture devices
+- `POST /audio/start` - Start audio recording
+- `POST /audio/stop` - Stop audio recording
+- `POST /audio/device/start` - Start specific device
+- `POST /audio/device/stop` - Stop specific device
+
+### Speaker Management
+- `GET /speakers/unnamed` - List unnamed speakers
+- `POST /speakers/update` - Update speaker name
+- `POST /speakers/search` - Search speakers
+- `DELETE /speakers/delete` - Delete speaker
+- `POST /speakers/hallucination` - Mark speaker as hallucination
+- `POST /speakers/merge` - Merge speakers
+- `GET /speakers/similar` - Find similar speakers
+- `POST /speakers/reassign` - Reassign audio to speaker
+- `POST /speakers/undo-reassign` - Undo speaker reassignment
+
+### Pipes Management
+- `GET /pipes` - List all pipes ([details](/api/pipes))
+- `POST /pipes/install` - Install a pipe
+- `GET /pipes/{id}` - Get pipe details
+- `DELETE /pipes/{id}` - Delete a pipe
+
+### Data Management
+- `POST /add` - Add content manually
+- `POST /tags/{content_type}/{id}` - Tag content
+- `POST /raw_sql` - Execute raw SQL queries
+
+### UI Events
+- `GET /ui-events` - Get UI interaction events
+- `GET /ui-events/stats` - Get UI event statistics
+
+### Cloud Sync
+- `POST /sync/init` - Initialize cloud sync
+- `GET /sync/status` - Get sync status
+- `POST /sync/trigger` - Trigger manual sync
+- `GET /sync/lock` - Get sync lock status
+- `POST /sync/download` - Download synced data
+
+### Experimental
+- `POST /experimental/frames/merge` - Merge frame data
+- `POST /experimental/validate/media` - Validate media files
+
 ## Next Steps
 
 - Learn about [authentication and security](/api/authentication)
