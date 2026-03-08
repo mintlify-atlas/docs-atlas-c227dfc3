@@ -1,0 +1,142 @@
+{
+  "projectType": "saas",
+  "projectName": "Screenpipe",
+  "projectDescription": "AI memory for your screen - record, search, and automate everything you've seen, said, or heard",
+  "theme": "aspen",
+  "primaryColor": "#6c6c6c",
+  "lightColor": "#080808",
+  "darkColor": "#e2e2e2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/screen-capture",
+              "features/audio-transcription",
+              "features/search",
+              "features/timeline",
+              "features/ai-memory"
+            ]
+          },
+          {
+            "group": "Pipes & Automation",
+            "pages": [
+              "pipes/overview",
+              "pipes/creating-pipes",
+              "pipes/data-permissions",
+              "pipes/examples"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/mcp-server",
+              "integrations/claude-desktop",
+              "integrations/cursor",
+              "integrations/chatgpt",
+              "integrations/opencode",
+              "integrations/cline",
+              "integrations/continue",
+              "integrations/ollama",
+              "integrations/obsidian",
+              "integrations/apple-intelligence"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/cloud-sync",
+              "advanced/teams",
+              "advanced/privacy-security",
+              "advanced/performance"
+            ]
+          },
+          {
+            "group": "Developers",
+            "pages": [
+              "developers/api-overview",
+              "developers/javascript-sdk",
+              "developers/cli-reference",
+              "developers/contributing"
+            ]
+          },
+          {
+            "group": "Comparison",
+            "pages": [
+              "comparison/vs-rewind",
+              "comparison/vs-recall",
+              "comparison/vs-limitless"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/faq",
+              "resources/troubleshooting",
+              "resources/changelog"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/introduction",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/search",
+              "api/frames",
+              "api/audio",
+              "api/pipes",
+              "api/health"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Event-driven screen capture with accessibility tree extraction",
+    "Local audio transcription with Whisper (speaker identification)",
+    "AI-powered natural language search across screen and audio",
+    "Visual timeline view of screen history",
+    "Pipes system - scheduled AI agents as markdown files",
+    "MCP server for AI assistant integration",
+    "REST API and JavaScript/TypeScript SDK",
+    "Cloud sync with end-to-end encryption",
+    "Teams with central config and per-pipe data permissions",
+    "Cross-platform - macOS, Windows, Linux"
+  ],
+  "publicApiSurface": [
+    "GET /search - Search screen and audio content",
+    "GET /frames - Retrieve screen captures",
+    "GET /audio - Get audio transcriptions",
+    "GET /pipes - List available pipes",
+    "POST /pipes/run - Execute a pipe",
+    "GET /health - Health check",
+    "pipe.queryScreenpipe() - SDK search method",
+    "pipe.sendDesktopNotification() - SDK notification",
+    "screenpipe record - CLI recording command",
+    "screenpipe pipe - CLI pipe management",
+    "screenpipe sync - CLI cloud sync"
+  ]
+}
