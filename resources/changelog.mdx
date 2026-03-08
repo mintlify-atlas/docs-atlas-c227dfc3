@@ -1,0 +1,240 @@
+---
+title: 'Changelog'
+description: 'Recent updates and version history for screenpipe'
+---
+
+# Changelog
+
+Recent updates, bug fixes, and new features in screenpipe.
+
+<Note>
+For the complete version history and detailed commit logs, visit the [GitHub releases page](https://github.com/screenpipe/screenpipe/releases).
+</Note>
+
+## Recent Updates
+
+### v2.2.80 (March 2026)
+
+**Fixes:**
+- Fixed black screen issue when snapshot JPG missing from disk
+- Added HTTP fallback when snapshot JPG missing on disk
+- Improved error handling for missing frames
+- Fixed Live Text positioning race condition in embedded timeline
+- Restored overlay shortcut behavior on macOS (Cmd+Ctrl+S/K)
+
+**Improvements:**
+- Better handling of missing snapshot files
+- More robust frame retrieval with fallbacks
+- Enhanced embedded timeline stability
+
+### v0.3.178 (CLI - March 2026)
+
+**Features:**
+- Added `GET /contacts` endpoint to WhatsApp gateway for AI name resolution
+- AI agents can now resolve contact names to phone numbers
+
+**Improvements:**
+- Enhanced WhatsApp integration for Pipes
+
+### v0.3.177 (CLI - March 2026)
+
+**Fixes:**
+- Fixed CLI WhatsApp detection by checking session on disk
+- Connection list now queries running server to include WhatsApp
+- Suppressed noisy "file descriptor limit already sufficient" message
+- Cleaned up deprecated Pi skill directories on startup
+
+**Maintenance:**
+- Removed stale package-lock.json files (using bun.lock)
+- Updated dependencies to resolve security vulnerabilities
+- Build system improvements
+
+### Previous Releases
+
+**v2.2.7x series:**
+- Live Text improvements in embedded timeline mode
+- Settings window behavior fixes
+- Timeline crash prevention
+- Shortcut toggle enhancements
+- Native Live Text controls
+
+**v2.2.6x series:**
+- Event-driven capture improvements
+- Multi-monitor capture enhancements
+- Audio transcription optimizations
+- MCP server stability fixes
+
+**v2.2.5x series:**
+- Accessibility tree extraction
+- Hybrid OCR/accessibility approach
+- Storage efficiency improvements
+- Apple Intelligence integration (macOS)
+
+## Upcoming Features
+
+The screenpipe team is actively working on:
+
+- Enhanced team deployment features
+- Additional built-in Pipes
+- Improved AI model integrations
+- Cross-device sync improvements
+- Mobile companion app
+- Advanced search filters
+
+<Tip>
+Join the [Discord community](https://discord.gg/screenpipe) to participate in feature discussions and vote on the roadmap.
+</Tip>
+
+## Release Channels
+
+### Stable
+
+Production-ready releases with full testing.
+
+- **Desktop app**: Auto-updates enabled by default
+- **CLI**: `npx screenpipe@latest`
+- **Frequency**: Every 2-4 weeks
+
+### Beta
+
+Early access to new features with potential bugs.
+
+- **Desktop app**: Enable beta channel in Settings → Updates
+- **CLI**: `npx screenpipe@beta`
+- **Frequency**: Weekly
+
+### Nightly
+
+Latest development builds - use at your own risk.
+
+- **Desktop app**: Not available via auto-update
+- **CLI**: `npx screenpipe@nightly`
+- **Build from source**:
+```bash
+git clone https://github.com/screenpipe/screenpipe
+cd screenpipe
+cargo build --release
+```
+
+## Update Methods
+
+### Desktop App
+
+Auto-updates are enabled by default:
+
+1. screenpipe checks for updates on launch
+2. Downloads in background
+3. Prompts to restart when ready
+4. Or manually: Settings → About → Check for Updates
+
+### CLI
+
+Update to latest version:
+
+```bash
+npx screenpipe@latest
+
+# Or if installed globally
+npm update -g screenpipe
+```
+
+### Build from Source
+
+```bash
+# Pull latest changes
+git pull origin main
+
+# Rebuild
+cargo build --release
+
+# Or for desktop app
+cd apps/screenpipe-app-tauri
+bun install
+bun run tauri build
+```
+
+## Breaking Changes
+
+screenpipe follows semantic versioning. Breaking changes are noted in release notes:
+
+**v2.0.0** (Major release):
+- Event-driven capture (replaces continuous)
+- New database schema
+- API endpoint changes
+- Migration guide provided
+
+**v3.0.0** (Upcoming):
+- Planned improvements to Pipes format
+- Enhanced permissions model
+- API v2 with backwards compatibility
+
+<Warning>
+Major version updates may require data migration. Always backup your data before upgrading:
+
+```bash
+cp -r ~/.screenpipe ~/.screenpipe.backup
+```
+</Warning>
+
+## Version History
+
+For detailed version history including:
+- All commits and changes
+- Known issues
+- Migration guides
+- Download links for older versions
+
+Visit the official [GitHub releases page](https://github.com/screenpipe/screenpipe/releases).
+
+## Release Notes Format
+
+screenpipe release notes follow this structure:
+
+### [Version] - Date
+
+**Features:**
+- New functionality added
+
+**Improvements:**
+- Enhancements to existing features
+
+**Fixes:**
+- Bug fixes and patches
+
+**Breaking Changes:**
+- Changes requiring user action
+
+**Security:**
+- Security patches and updates
+
+**Deprecations:**
+- Features being phased out
+
+## Contributing
+
+Want to contribute to screenpipe?
+
+- **Report bugs**: [GitHub Issues](https://github.com/screenpipe/screenpipe/issues)
+- **Suggest features**: [Discord](https://discord.gg/screenpipe)
+- **Submit PRs**: See [CONTRIBUTING.md](https://github.com/screenpipe/screenpipe/blob/main/CONTRIBUTING.md)
+- **Join discussion**: [Discord community](https://discord.gg/screenpipe)
+
+<Tip>
+The screenpipe team welcomes AI-generated and vibe-coded PRs! Just make sure to test thoroughly and follow the contribution guidelines.
+</Tip>
+
+## Stay Updated
+
+Follow screenpipe development:
+
+- **Twitter/X**: [@screen_pipe](https://twitter.com/screen_pipe)
+- **Discord**: [discord.gg/screenpipe](https://discord.gg/screenpipe)
+- **YouTube**: [screenpipe channel](https://www.youtube.com/@screen_pipe)
+- **Reddit**: [r/screen_pipe](https://www.reddit.com/r/screen_pipe)
+- **GitHub**: [Watch repository](https://github.com/screenpipe/screenpipe)
+
+---
+
+**Questions about a specific release?**
+
+Ask in [Discord](https://discord.gg/screenpipe) or check the [GitHub releases](https://github.com/screenpipe/screenpipe/releases).

@@ -1,0 +1,332 @@
+---
+title: 'Screen Capture'
+description: 'Event-driven screen capture with accessibility tree extraction and OCR fallback'
+---
+
+# Screen Capture
+
+screenpipe captures your screen using an intelligent event-driven system that triggers on actual user activity instead of continuous polling. This approach reduces CPU usage by 3-5x while ensuring you never miss important context.
+
+## How It Works
+
+### Event-Driven Architecture
+
+Instead of continuously capturing at a fixed FPS, screenpipe monitors real user events and triggers captures intelligently:
+
+<Steps>
+  <Step title="Event Detection">
+    The system listens for meaningful user interactions:
+    - App switches (300ms debounce)
+    - Window focus changes (300ms settle)
+    - Mouse clicks (200ms)
+    - Typing pauses (500ms after last keystroke)
+    - Scroll stops (400ms after last scroll)
+    - Clipboard copy (200ms)
+    - Idle fallback (every 5s for passive changes)
+  </Step>
+  
+  <Step title="Screenshot Capture">
+    When an event triggers, screenpipe captures the affected monitor using platform-native APIs:
+    - **macOS**: ScreenCaptureKit (~5ms)
+    - **Windows**: DXGI/GDI
+    - **Linux**: XCB/Wayland
+  </Step>
+  
+  <Step title="Text Extraction">
+    Accessibility tree extraction runs first (~10-200ms), with OCR as fallback if needed.
+  </Step>
+  
+  <Step title="Storage">
+    Each capture is saved as a JPEG file with metadata stored in the database.
+  </Step>
+</Steps>
+
+<Note>
+  **Hard Constraints**: Minimum 200ms interval between captures per monitor prevents event storms. Maximum 10s gap ensures passive changes (notifications, incoming messages) are captured.
+</Note>
+
+### Capture Triggers
+
+Each event type is optimized for different interaction patterns:
+
+<CodeGroup>
+```rust screenpipe-screen/src/core.rs
+// App switch — highest-value event
+// User changed context, capture with 300ms settle time
+EventTrigger::AppSwitch { monitor_id, timestamp }
+
+// Typing pause — capture the result of typing, not every character
+EventTrigger::TypingPause { monitor_id, timestamp, debounce: 500ms }
+
+// Scroll stop — new content scrolled into view
+EventTrigger::ScrollStop { monitor_id, timestamp, debounce: 400ms }
+
+// Idle fallback — catch passive changes
+EventTrigger::Idle { monitor_id, max_gap: 5s }
+```
+
+```typescript Example Usage
+// Events automatically trigger captures
+// No manual configuration needed
+
+// When you switch apps:
+focus Chrome → capture within 500ms
+
+// When you stop typing:
+type "meeting notes" → pause → capture within 1s
+
+// When you stop scrolling:
+scroll through page → stop → capture within 600ms
+```
+</CodeGroup>
+
+## Accessibility Tree Extraction
+
+Before running OCR, screenpipe extracts structured text from the accessibility tree — the same API used by screen readers.
+
+### Why Accessibility First?
+
+<Tabs>
+  <Tab title="Performance">
+    - **10-50ms** on macOS vs 100-500ms for OCR
+    - **200-350ms** timeout prevents blocking on massive trees
+    - Native system APIs (AX API on macOS, UI Automation on Windows)
+  </Tab>
+  
+  <Tab title="Accuracy">
+    - Exact text with no hallucination
+    - Perfect Unicode handling
+    - Captures window titles, URLs, and metadata
+    - Structured hierarchical data
+  </Tab>
+  
+  <Tab title="Context">
+    - Window name and app name
+    - Browser URLs (Chrome, Safari, Firefox, Edge)
+    - Focused element state
+    - Text selection
+  </Tab>
+</Tabs>
+
+<CodeGroup>
+```rust screenpipe-screen/src/apple.rs
+// macOS accessibility tree extraction
+pub fn walk_focused_window() -> Result<AccessibilityText> {
+    let app = get_frontmost_app();
+    let window = get_focused_window(&app);
+    
+    // 200ms hard timeout for massive trees
+    timeout(Duration::from_millis(200), async {
+        extract_text_recursive(window)
+    }).await
+}
+```
+
+```json Example Output
+{
+  "window_name": "screenpipe/README.md — Visual Studio Code",
+  "app_name": "Code",
+  "text": "screenpipe turns your computer into a personal AI...",
+  "focused": true,
+  "text_source": "accessibility",
+  "confidence": 1.0
+}
+```
+</CodeGroup>
+
+### OCR Fallback
+
+When accessibility extraction returns empty (image-heavy apps, PDFs, videos), OCR activates automatically:
+
+<Info>
+  **Automatic fallback for**:
+  - Design tools (Figma, Photoshop, Sketch)
+  - PDF viewers rendering as canvas
+  - Video players with text overlays
+  - Games and other non-standard apps
+  - Apps with broken accessibility support
+</Info>
+
+<CodeGroup>
+```rust screenpipe-screen/src/core.rs
+// Paired capture: accessibility → OCR fallback
+pub async fn paired_capture(
+    image: &DynamicImage,
+    monitor_id: u32,
+) -> Result<CaptureResult> {
+    // Try accessibility first
+    let ax_result = walk_focused_window().await;
+    
+    if !ax_result.text.is_empty() {
+        return Ok(CaptureResult {
+            text: ax_result.text,
+            text_source: "accessibility",
+            confidence: 1.0,
+        });
+    }
+    
+    // Fallback to OCR
+    let ocr_result = process_ocr_task(image).await?;
+    Ok(CaptureResult {
+        text: ocr_result.text,
+        text_source: "ocr",
+        confidence: ocr_result.confidence,
+    })
+}
+```
+
+```bash Performance Metrics
+# Accessibility path (typical)
+Capture:       ~5ms
+Accessibility: ~10-50ms
+JPEG encode:   ~5-10ms
+DB insert:     ~5ms
+Total:         ~30-50ms
+
+# OCR fallback path (rare)
+Capture:       ~5ms
+Accessibility: ~200ms (timeout)
+OCR:          ~100-500ms
+JPEG encode:   ~5-10ms
+DB insert:     ~5ms
+Total:         ~310-710ms
+```
+</CodeGroup>
+
+## Snapshot Storage
+
+Each capture writes a JPEG directly to disk — no video encoding, no FFmpeg overhead.
+
+### File Layout
+
+```bash
+~/.screenpipe/data/
+  2026-03-08/
+    1709900823123_m0.jpg  # timestamp_ms + monitor ID
+    1709900825456_m0.jpg
+    1709900827789_m1.jpg  # monitor 1 screenshot
+    ...
+```
+
+<Note>
+  **Storage Math** (8 hours active use, 1080p, JPEG quality 80):
+  - **Event-driven**: ~3,840 frames → ~300 MB total
+  - **Old continuous (0.5-1 FPS)**: 14,400-28,800 frames → 1.1-2.3 GB
+  
+  Fewer frames, slightly larger each, **far less total storage**.
+</Note>
+
+### Database Schema
+
+```sql
+ALTER TABLE frames ADD COLUMN snapshot_path TEXT;
+ALTER TABLE frames ADD COLUMN accessibility_text TEXT;
+ALTER TABLE frames ADD COLUMN capture_trigger TEXT;  -- 'app_switch', 'click', etc.
+ALTER TABLE frames ADD COLUMN text_source TEXT;      -- 'ocr' or 'accessibility'
+
+CREATE INDEX idx_frames_ts_device ON frames(timestamp, device_name);
+```
+
+Metadata lives in the database. JPEG is just pixels. This means:
+- Snapshots served in less than 5ms (no FFmpeg extraction)
+- Direct URL serving (`/frames/{id}.jpg`)
+- Search results always show correct thumbnails
+
+## Multi-Monitor Support
+
+Events are monitor-specific where possible:
+
+<Tabs>
+  <Tab title="Focused Captures">
+    - **Click/scroll**: capture the monitor where cursor is
+    - **App switch**: capture monitor with newly focused window
+    - **Typing pause**: capture monitor with focused window
+  </Tab>
+  
+  <Tab title="Idle Captures">
+    - Other monitors get idle fallback only (every 5s)
+    - Consecutive identical frames are deduplicated via hash
+    - Prevents capturing all monitors on every click
+  </Tab>
+</Tabs>
+
+<Warning>
+  **3+ monitor setups**: Event-driven capture significantly reduces overhead by only capturing the active monitor per event instead of all monitors simultaneously.
+</Warning>
+
+## Performance
+
+### CPU Usage
+
+<Tabs>
+  <Tab title="Idle (Static Screen)">
+    - **Event-driven**: less than 0.5% CPU
+    - **Continuous polling**: 3-5% CPU
+    
+    Event-driven system sleeps until events occur. No frame comparison loops.
+  </Tab>
+  
+  <Tab title="Active Use (Browsing)">
+    - **Event-driven**: less than 5% CPU
+    - **Continuous polling**: 8-15% CPU
+    
+    Only captures on actual interactions, not every N milliseconds.
+  </Tab>
+</Tabs>
+
+### Frame Serve Latency
+
+```bash
+# New snapshot frames
+Direct JPEG serve: <5ms
+
+# Old video-chunk frames (backward compat)
+FFmpeg extraction: 100-500ms (3-permit semaphore)
+```
+
+## Settings
+
+<CodeGroup>
+```json Capture Sensitivity
+{
+  "sensitivity": "medium",  // low, medium, high
+  "modes": {
+    "low": {
+      "debounce": "500ms",
+      "idle_gap": "10s",
+      "use_case": "laptop battery mode"
+    },
+    "medium": {
+      "debounce": "200ms",
+      "idle_gap": "5s",
+      "use_case": "default — balanced performance"
+    },
+    "high": {
+      "debounce": "100ms",
+      "idle_gap": "3s",
+      "use_case": "maximum recall"
+    }
+  }
+}
+```
+
+```json JPEG Quality
+{
+  "jpeg_quality": 80,  // 60-95%, default 80%
+  "notes": [
+    "80% = ~80KB per frame at 1080p",
+    "Higher quality = larger files, minimal OCR improvement",
+    "Lower quality = smaller files, potential OCR degradation"
+  ]
+}
+```
+</CodeGroup>
+
+## Reference
+
+Source files:
+- Event-driven spec: [`docs/EVENT_DRIVEN_CAPTURE_SPEC.md`](https://github.com/louis030195/screenpipe/blob/main/docs/EVENT_DRIVEN_CAPTURE_SPEC.md)
+- Core capture: `crates/screenpipe-screen/src/core.rs`
+- Accessibility (macOS): `crates/screenpipe-screen/src/apple.rs`
+- Accessibility (Windows): `crates/screenpipe-screen/src/microsoft.rs`
+- Snapshot writer: `crates/screenpipe-screen/src/snapshot_writer.rs`

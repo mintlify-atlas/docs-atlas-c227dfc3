@@ -1,0 +1,271 @@
+---
+title: "Continue - open-source copilot with screen context"
+sidebarTitle: "Continue"
+description: "Connect screenpipe to Continue to give this open-source AI coding assistant access to your screen history."
+icon: "forward"
+---
+
+[Continue](https://github.com/continuedev/continue) is an open-source AI coding assistant with 20k+ GitHub stars. it works in VS Code and JetBrains IDEs, and supports MCP servers for external context.
+
+## setup
+
+<Tabs>
+  <Tab title="VS Code">
+    <Steps>
+      <Step title="Install Continue">
+        install Continue from the [VS Code marketplace](https://marketplace.visualstudio.com/items?itemName=Continue.continue)
+      </Step>
+
+      <Step title="Open Continue settings">
+        click the gear icon in Continue's panel
+      </Step>
+
+      <Step title="Edit config.json">
+        edit `~/.continue/config.json` and add:
+        
+        ```json
+        {
+          "mcpServers": [
+            {
+              "name": "screenpipe",
+              "command": "npx",
+              "args": ["-y", "screenpipe-mcp"]
+            }
+          ]
+        }
+        ```
+      </Step>
+
+      <Step title="Restart VS Code">
+        restart VS Code to load the MCP server
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="JetBrains">
+    <Steps>
+      <Step title="Install Continue">
+        install Continue from JetBrains marketplace
+      </Step>
+
+      <Step title="Open Continue settings">
+        click the gear icon in Continue's panel
+      </Step>
+
+      <Step title="Add MCP server">
+        add the same MCP configuration as VS Code
+      </Step>
+
+      <Step title="Restart IDE">
+        restart your JetBrains IDE
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+<Tip>
+ensure screenpipe is running on localhost:3030 before using Continue with screenpipe.
+</Tip>
+
+## usage
+
+once configured, Continue can access your screen history:
+
+**recall what you were working on:**
+```
+> @screenpipe what was I working on this morning?
+```
+
+**find error messages:**
+```
+> find the error I saw in my terminal and help me fix it
+```
+
+**reference documentation:**
+```
+> what documentation was I reading about react hooks?
+```
+
+**clipboard history:**
+```
+> I copied some code earlier, can you find it?
+```
+
+**meeting context:**
+```
+> what did we discuss about the API in standup? help me implement it
+```
+
+## context providers
+
+Continue also supports custom context providers. you can add screenpipe as a context provider for more control:
+
+```json
+{
+  "contextProviders": [
+    {
+      "name": "screenpipe",
+      "params": {
+        "apiUrl": "http://localhost:3030"
+      }
+    }
+  ]
+}
+```
+
+with a context provider, you can:
+- add screenpipe context automatically to every query
+- customize how screenpipe data is fetched
+- create custom context filters
+
+<Note>
+MCP integration is simpler and recommended for most users. use context providers if you need custom behavior.
+</Note>
+
+## available tools
+
+via MCP, Continue gets access to:
+
+### search-content
+
+search screen OCR, audio transcriptions, and input events:
+
+- filter by content type (all, ocr, audio, input, accessibility)
+- time range filtering
+- app/window filtering
+- speaker filtering for audio
+
+### export-video
+
+create video exports from screen recordings.
+
+### activity-summary
+
+get app usage statistics for a time range.
+
+### list-meetings
+
+list detected meetings with context.
+
+see [MCP server documentation](/integrations/mcp-server#available-tools) for full details.
+
+## example workflows
+
+**code with context:**
+```
+user: I was looking at how another project handles authentication,
+      find that code and help me implement something similar
+
+Continue: [searches screenpipe, finds code, suggests implementation]
+```
+
+**recall errors:**
+```
+user: there was a typescript error earlier about types,
+      find it and explain how to fix it
+
+Continue: [searches screen history, finds error, explains solution]
+```
+
+**meeting follow-up:**
+```
+user: what did we discuss in the standup about the API changes?
+      help me implement those changes
+
+Continue: [searches audio, extracts requirements, writes code]
+```
+
+**reference API documentation:**
+```
+user: find the API docs I was reading about the /users endpoint
+      and write a client function
+
+Continue: [searches screen history, finds docs, implements client]
+```
+
+## tips for best results
+
+**use the @screenpipe mention:**
+```
+✅ "@screenpipe what was I working on this morning?"
+✅ "@screenpipe find error messages from my terminal"
+```
+
+**be specific about what you want:**
+```
+✅ "find the React component I was reading about this morning"
+✅ "show me the error from my terminal 30 minutes ago"
+✅ "what docs was I reading in Chrome about async/await"
+
+❌ "find that thing I saw" (too vague)
+```
+
+**mention the app when relevant:**
+```
+✅ "what was I looking at in Chrome"
+✅ "show me VS Code windows from earlier"
+✅ "find my Slack messages about the deploy"
+```
+
+**use time references:**
+```
+✅ "this morning"
+✅ "in the last 2 hours"
+✅ "yesterday afternoon"
+✅ "during my 3pm meeting"
+```
+
+## VS Code vs JetBrains
+
+both IDEs support Continue with screenpipe, but there are some differences:
+
+| feature | VS Code | JetBrains |
+|---------|---------|----------|
+| **MCP support** | ✅ full support | ✅ full support |
+| **config location** | `~/.continue/config.json` | IDE settings |
+| **performance** | faster | slightly slower |
+| **context providers** | ✅ supported | ✅ supported |
+
+recommendation: both work great, use whichever IDE you prefer.
+
+## troubleshooting
+
+**Continue not finding screenpipe?**
+- verify screenpipe is running: `curl http://localhost:3030/health`
+- check config.json syntax is valid (valid JSON)
+- restart your IDE after config changes
+
+**queries returning no data?**
+- ensure screenpipe has screen recording permissions
+- check screenpipe has been running and recording
+- verify the time range has data: `curl "http://localhost:3030/search?limit=1"`
+- try a broader time range
+
+**MCP connection errors?**
+- ensure Node.js >= 18.0.0 is installed
+- try `npx clear-npx-cache`
+- check IDE's logs for error messages
+
+**@screenpipe mention not working?**
+- verify the MCP server is configured (not context provider)
+- restart Continue extension
+- check Continue's output panel for errors
+
+**JetBrains-specific issues?**
+- ensure Continue plugin is up to date
+- check IDE version is compatible
+- try invalidating caches and restarting
+
+**slow responses?**
+- reduce the time range you're querying
+- be more specific with filters
+- avoid requesting screenshots unless needed
+
+still stuck? [ask in our discord](https://discord.gg/screenpipe) — we can help troubleshoot.
+
+## resources
+
+- [Continue GitHub repository](https://github.com/continuedev/continue)
+- [Continue documentation](https://continue.dev/docs)
+- [MCP server documentation](/integrations/mcp-server)
+- [screenpipe API reference](/api/introduction)

@@ -1,0 +1,460 @@
+---
+title: CLI Reference
+description: Command-line tools for Screenpipe development
+---
+
+Screenpipe provides two CLI tools for development:
+
+1. **`screenpipe`** - Core server and capture engine
+2. **`screenpipe-dev`** - Development tools for building pipes and apps
+
+## Screenpipe Server
+
+The main `screenpipe` CLI runs the capture engine and API server.
+
+### Basic Usage
+
+```bash
+screenpipe
+```
+
+This starts the server with default settings:
+- API server on `http://localhost:3030`
+- Default audio and video capture enabled
+- Data stored in `~/.screenpipe/`
+
+### Common Options
+
+<ParamField path="--port" type="number" default="3030">
+  Port for the API server
+</ParamField>
+
+<ParamField path="--data-dir" type="string" default="~/.screenpipe">
+  Directory for storing captured data and database
+</ParamField>
+
+<ParamField path="--disable-audio" type="boolean" default="false">
+  Disable audio capture
+</ParamField>
+
+<ParamField path="--disable-vision" type="boolean" default="false">
+  Disable screen capture
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+
+```bash Custom Port
+screenpipe --port 3035
+```
+
+```bash Custom Data Directory
+screenpipe --data-dir /tmp/screenpipe-data
+```
+
+```bash Dev + Prod Simultaneously
+# Run dev instance on different port with separate data
+screenpipe --port 3035 --data-dir /tmp/sp
+```
+
+```bash Audio Only
+screenpipe --disable-vision
+```
+
+</CodeGroup>
+
+## Screenpipe Dev CLI
+
+The `screenpipe-dev` CLI provides tools for building applications and plugins.
+
+### Installation
+
+```bash
+npm install -g @screenpipe/dev
+# or
+bun add -g @screenpipe/dev
+```
+
+### Commands
+
+#### login
+
+Authenticate with Screenpipe services.
+
+```bash
+screenpipe-dev login
+```
+
+Supports two authentication methods:
+- **Browser** - OAuth flow via browser
+- **API Key** - Direct API key input
+
+**Example:**
+
+```bash
+$ screenpipe-dev login
+? Select login type › Browser
+✓ Login complete
+```
+
+#### logout
+
+Remove stored credentials.
+
+```bash
+screenpipe-dev logout
+```
+
+---
+
+### Pipe Commands
+
+Pipes are lightweight plugins that process Screenpipe data.
+
+#### pipe create
+
+Create a new pipe from a template.
+
+```bash
+screenpipe-dev pipe create
+```
+
+**Interactive prompts:**
+1. Pipe name
+2. Target directory
+
+**Example:**
+
+```bash
+$ screenpipe-dev pipe create
+
+welcome to screenpipe!
+
+? what is your pipe name? › my-awesome-pipe
+? where would you like to create your pipe? › ./my-awesome-pipe
+✓ pipe created successfully!
+
+to get started:
+cd ./my-awesome-pipe
+bun install
+bun dev
+```
+
+The generated pipe includes:
+- TypeScript configuration
+- Example code with `@screenpipe/js` SDK
+- `package.json` with dependencies
+- Development server setup
+
+#### pipe register
+
+Register a pipe with the Screenpipe store.
+
+```bash
+screenpipe-dev pipe register
+```
+
+Requires:
+- Valid authentication (run `screenpipe-dev login` first)
+- `pipe.json` in current directory
+
+#### pipe publish
+
+Publish a new version of your pipe.
+
+```bash
+screenpipe-dev pipe publish
+```
+
+Requires:
+- Registered pipe
+- Valid authentication
+
+#### pipe list-versions
+
+List all published versions of a pipe.
+
+```bash
+screenpipe-dev pipe list-versions
+```
+
+---
+
+### App Commands
+
+Create full desktop applications that embed Screenpipe.
+
+#### app create
+
+Create a new desktop app from templates.
+
+```bash
+screenpipe-dev app create [options]
+```
+
+**Options:**
+
+<ParamField path="-a, --name" type="string">
+  Name of your app (optional, prompts if not provided)
+</ParamField>
+
+<ParamField path="-t, --appType" type="string">
+  Type of desktop app: `electron` or `tauri`
+</ParamField>
+
+**Interactive mode:**
+
+```bash
+$ screenpipe-dev app create
+? what type of desktop app would you like to create? › tauri
+? what is your project name? › my-screenpipe-app
+✓ project created successfully! 🎉
+
+credits to the template authors:
+tauri template by: Lorenzo @ https://github.com/LorenzoBloedow
+
+to get started:
+cd my-screenpipe-app
+npm install
+npm run dev
+```
+
+**Direct mode:**
+
+```bash
+screenpipe-dev app create --name my-app --appType electron
+```
+
+**Available Templates:**
+
+<Tabs>
+  <Tab title="Electron">
+    **Electron Template**
+    
+    - Modern Electron + React setup
+    - TypeScript support
+    - Screenpipe SDK pre-configured
+    
+    Template by: [Neo](https://github.com/neo773)
+    
+    Repository: [screenpipe-electron](https://github.com/neo773/screenpipe-electron)
+  </Tab>
+  
+  <Tab title="Tauri">
+    **Tauri Template**
+    
+    - Tauri v2 + React
+    - TypeScript support
+    - Lightweight bundle size
+    - Screenpipe SDK pre-configured
+    
+    Template by: [Lorenzo](https://github.com/LorenzoBloedow)
+    
+    Repository: [screenpipe-tauri-template-dev](https://github.com/LorenzoBloedow/screenpipe-tauri-template-dev)
+  </Tab>
+</Tabs>
+
+---
+
+### Components Commands
+
+Manage UI components (uses shadcn/ui registry).
+
+#### components add
+
+Add UI components to your project.
+
+```bash
+screenpipe-dev components add [component-name]
+```
+
+**Example:**
+
+```bash
+screenpipe-dev components add button
+screenpipe-dev components add dialog card
+```
+
+This command:
+1. Detects your project configuration
+2. Downloads the component from the registry
+3. Installs required dependencies
+4. Adds the component to your project
+
+---
+
+## Testing & Development
+
+### Running Tests
+
+For Rust code:
+
+```bash
+cargo test
+```
+
+For TypeScript/JavaScript:
+
+```bash
+bun test
+```
+
+### Development Build
+
+Build the core engine:
+
+```bash
+cargo build --release
+```
+
+Build with platform-specific features:
+
+<CodeGroup>
+
+```bash macOS
+cargo build --release --features metal,apple-intelligence
+```
+
+```bash Windows
+cargo build --release
+```
+
+```bash Linux
+cargo build --release
+```
+
+</CodeGroup>
+
+### Running from Source
+
+Run Screenpipe directly from source:
+
+```bash
+./target/release/screenpipe
+```
+
+### Desktop App Development
+
+Build the Tauri desktop app:
+
+```bash
+cd apps/screenpipe-app-tauri
+bun install
+bun tauri dev    # Development mode
+bun tauri build  # Production build
+```
+
+## Environment Variables
+
+<ParamField path="SCREENPIPE_DATA_DIR" type="string">
+  Override default data directory
+</ParamField>
+
+<ParamField path="SCREENPIPE_PORT" type="number">
+  Override default API port
+</ParamField>
+
+<ParamField path="RUST_LOG" type="string" default="info">
+  Set log level: `error`, `warn`, `info`, `debug`, `trace`
+</ParamField>
+
+**Example:**
+
+```bash
+RUST_LOG=debug screenpipe
+```
+
+## Debugging
+
+### Memory Debugging
+
+Using tokio-console:
+
+```bash
+# Terminal 1
+RUST_LOG="tokio=debug,runtime=debug" \
+RUSTFLAGS="--cfg tokio_unstable" \
+cargo run --bin screenpipe --features debug-console
+
+# Terminal 2
+cargo install tokio-console
+tokio-console
+```
+
+### Address Sanitizer
+
+```bash
+RUSTFLAGS="-Z sanitizer=address" cargo run --bin screenpipe
+```
+
+### Leak Sanitizer
+
+```bash
+RUSTFLAGS="-Z sanitizer=leak" cargo run --bin screenpipe
+```
+
+## Database Migrations
+
+### Create Migration
+
+```bash
+cargo install sqlx-cli
+sqlx migrate add migration_name
+```
+
+### Fix Migration Issues
+
+If you encounter missing migration errors:
+
+```bash
+# Remove specific migration
+sqlite3 ~/.screenpipe/db.sqlite "DELETE FROM _sqlx_migrations WHERE version = XXXXXXXXXX;"
+
+# Verify migrations
+sqlite3 ~/.screenpipe/db.sqlite "SELECT * FROM _sqlx_migrations;"
+```
+
+## Performance Monitoring
+
+Using `cargo-instruments` on macOS:
+
+```bash
+cargo install cargo-instruments
+
+# Track leaks over 60 minutes
+cargo instruments -t Leaks \
+  --bin screenpipe \
+  --features metal \
+  --time-limit 600000 \
+  --open
+```
+
+View results in Xcode Instruments.
+
+## Benchmarks
+
+Run performance benchmarks:
+
+```bash
+cargo bench
+```
+
+View benchmark history: [screenpipe.github.io/screenpipe/dev/bench](https://screenpipe.github.io/screenpipe/dev/bench/)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="JavaScript SDK" icon="js" href="/developers/javascript-sdk">
+    Build with the TypeScript SDK
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/developers/contributing">
+    Contribute to Screenpipe
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/introduction">
+    Complete API documentation
+  </Card>
+  <Card title="Examples" icon="lightbulb" href="/examples">
+    Code examples and tutorials
+  </Card>
+</CardGroup>

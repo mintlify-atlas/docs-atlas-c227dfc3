@@ -1,0 +1,338 @@
+---
+title: "Obsidian - sync screen history to your notes"
+sidebarTitle: "Obsidian"
+description: "Connect screenpipe to Obsidian to automatically capture what you've seen and heard into your knowledge base."
+icon: "gem"
+---
+
+[Obsidian](https://obsidian.md) is a powerful knowledge base that works on local markdown files. with screenpipe, you can query your screen history and meeting transcriptions directly from Obsidian using AI plugins.
+
+## integration methods
+
+screenpipe integrates with Obsidian in two ways:
+
+1. **Obsidian sync pipe** - automatically sync screen activity to daily notes
+2. **MCP integration** - query screenpipe from Obsidian using AI plugins
+
+choose the method that fits your workflow.
+
+## obsidian sync pipe (automated)
+
+the Obsidian sync pipe automatically creates daily logs in your Obsidian vault based on your screen activity.
+
+### setup
+
+<Steps>
+  <Step title="Open pipes in screenpipe">
+    open **screenpipe** → **pipes** in the sidebar
+  </Step>
+
+  <Step title="Enable Obsidian sync pipe">
+    find **Obsidian sync** in the pipe list and enable it
+  </Step>
+
+  <Step title="Configure vault path">
+    set the path to your Obsidian vault in the pipe settings:
+    
+    ```bash
+    # macOS/Linux
+    ~/Documents/Obsidian/MyVault
+    
+    # Windows
+    C:\Users\YourName\Documents\Obsidian\MyVault
+    ```
+  </Step>
+
+  <Step title="Set schedule">
+    choose when to sync:
+    - every hour
+    - every 30 minutes
+    - end of day
+    - manual only
+  </Step>
+
+  <Step title="Open Obsidian">
+    check your vault - you should see daily notes created automatically
+  </Step>
+</Steps>
+
+### what gets synced
+
+the pipe creates markdown files in your vault:
+
+```markdown
+# 2026-03-08
+
+## Screen Activity
+
+### 09:00 - VS Code
+- Edited `src/components/Header.tsx`
+- Worked on navigation component
+
+### 10:30 - Chrome
+- Read React documentation about hooks
+- Researched useState and useEffect patterns
+
+### 14:00 - Zoom Meeting
+- Team standup - discussed API migration
+- Action items: update endpoint URLs, test authentication
+
+## Apps Used
+- VS Code: 3.5 hours
+- Chrome: 2 hours  
+- Slack: 45 minutes
+```
+
+### customization
+
+you can customize the pipe's behavior:
+
+- **filter apps** - only sync specific apps
+- **exclude apps** - ignore certain apps (e.g., personal email)
+- **time range** - only sync work hours
+- **format** - customize markdown template
+- **include screenshots** - optionally attach screenshots
+
+## MCP integration (query on demand)
+
+query screenpipe from within Obsidian using AI plugins that support MCP.
+
+### setup with Copilot plugin
+
+the [Obsidian Copilot](https://github.com/logancyang/obsidian-copilot) plugin supports MCP servers:
+
+<Steps>
+  <Step title="Install Copilot plugin">
+    - open Obsidian
+    - go to **Settings** → **Community plugins**
+    - search for **Copilot**
+    - install and enable
+  </Step>
+
+  <Step title="Open Copilot settings">
+    go to **Settings** → **Copilot** → **MCP Servers**
+  </Step>
+
+  <Step title="Add screenpipe">
+    ```json
+    {
+      "screenpipe": {
+        "command": "npx",
+        "args": ["-y", "screenpipe-mcp"]
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Restart Obsidian">
+    restart Obsidian to load the MCP server
+  </Step>
+</Steps>
+
+### usage with Copilot
+
+once configured, ask Copilot to query your screen history:
+
+```
+> what was I reading about yesterday?
+
+> find my meeting notes from this morning
+
+> what code was I looking at in VS Code?
+
+> summarize my screen activity today
+```
+
+Copilot will search screenpipe and insert the results into your note.
+
+## manual workflow (API queries)
+
+if you prefer not to use plugins, query screenpipe's API manually:
+
+### search recent screen content
+
+```bash
+# get recent screen content
+curl "http://localhost:3030/search?q=meeting&limit=10" | jq '.data[].content.text'
+
+# get audio transcriptions from today
+curl "http://localhost:3030/search?content_type=audio&limit=20"
+
+# get content from specific app
+curl "http://localhost:3030/search?app_name=Chrome&limit=10"
+```
+
+### example: create daily note
+
+```bash
+#!/bin/bash
+# save as ~/bin/screenpipe-to-obsidian.sh
+
+VAULT="$HOME/Documents/Obsidian/MyVault"
+DATE=$(date +%Y-%m-%d)
+FILE="$VAULT/Daily/$DATE.md"
+
+# fetch today's activity
+curl -s "http://localhost:3030/search?start_time=$(date +%Y-%m-%d)T00:00:00Z" \
+  | jq -r '.data[] | "## \(.timestamp)\n\(.content.text)\n"' \
+  >> "$FILE"
+
+echo "Synced to $FILE"
+```
+
+make it executable and run:
+
+```bash
+chmod +x ~/bin/screenpipe-to-obsidian.sh
+~/bin/screenpipe-to-obsidian.sh
+```
+
+### automate with cron
+
+run the script automatically:
+
+```bash
+# edit crontab
+crontab -e
+
+# add this line to sync every hour
+0 * * * * ~/bin/screenpipe-to-obsidian.sh
+```
+
+## use cases
+
+**daily notes** - automatically populate daily notes with what you worked on:
+```markdown
+# 2026-03-08
+
+## What I worked on
+- [imported from screenpipe]
+- Morning: React component refactoring
+- Afternoon: API integration meeting
+- Evening: documentation updates
+```
+
+**meeting notes** - capture transcriptions and context:
+```markdown
+# Team Standup - 2026-03-08
+
+[query screenpipe for audio from 10am]
+- John: completed authentication PR
+- Sarah: working on dashboard redesign
+- Action items: review PRs, update docs
+```
+
+**research notes** - recall articles and documentation:
+```markdown
+# React Hooks Research
+
+[query screenpipe for "react hooks" from yesterday]
+- Found great article on useEffect
+- Documentation about custom hooks
+- Examples of performance optimization
+```
+
+**project logs** - track what you did across apps:
+```markdown
+# Project Alpha - Progress Log
+
+## 2026-03-08
+[query screenpipe for VS Code + Chrome activity]
+- Implemented new API endpoint
+- Tested in Postman
+- Updated documentation
+```
+
+**weekly reviews** - summarize your week:
+```markdown
+# Week of 2026-03-04
+
+[query screenpipe for the past week]
+- Total coding time: 32 hours
+- Meetings: 8 hours
+- Top apps: VS Code, Chrome, Slack
+```
+
+## tips for best results
+
+**structure your vault:**
+```
+MyVault/
+  Daily/
+    2026-03-08.md
+    2026-03-07.md
+  Meetings/
+    Team Standup/
+      2026-03-08.md
+  Projects/
+    Project Alpha/
+      Activity Log.md
+```
+
+**use templates:**
+```markdown
+---
+date: {{date}}
+tags: [daily, screenpipe]
+---
+
+# {{date}}
+
+## Screen Activity
+[screenpipe content here]
+
+## Tasks
+- [ ] 
+
+## Notes
+
+```
+
+**link to other notes:**
+```markdown
+## Related
+- [[2026-03-07]] - previous day
+- [[Project Alpha]] - project notes
+- [[React Hooks]] - research notes
+```
+
+## requirements
+
+- screenpipe running on localhost:3030
+- Obsidian installed
+- (optional) Obsidian Copilot plugin for MCP integration
+- (optional) Node.js >= 18.0.0 for MCP
+
+## troubleshooting
+
+**pipe not syncing?**
+- check screenpipe is running
+- verify vault path is correct
+- ensure you have write permissions to the vault
+- check pipe logs for errors
+
+**MCP not working in Copilot?**
+- ensure Node.js is installed
+- verify screenpipe is running: `curl http://localhost:3030/health`
+- restart Obsidian after config changes
+- check Copilot's console for errors
+
+**manual script failing?**
+- test the curl command manually
+- check `jq` is installed: `brew install jq` (macOS) or `apt install jq` (Linux)
+- verify vault path exists
+- ensure screenpipe has data
+
+**notes not appearing?**
+- refresh Obsidian's file explorer
+- check the correct folder
+- verify the pipe is enabled and running
+
+still stuck? [ask in our discord](https://discord.gg/screenpipe) — we can help set up your workflow.
+
+## resources
+
+- [Obsidian](https://obsidian.md)
+- [Obsidian Copilot plugin](https://github.com/logancyang/obsidian-copilot)
+- [screenpipe pipes documentation](/pipes/overview)
+- [screenpipe API reference](/api/introduction)

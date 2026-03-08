@@ -1,0 +1,442 @@
+---
+title: 'Search'
+description: 'Natural language search with filters, full-text search, and semantic search'
+---
+
+# Search
+
+screenpipe provides powerful search across all your captured screen and audio data with natural language queries, time-based filters, and content-type filtering.
+
+## Search API
+
+### Basic Search
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:3030/search?q=meeting+notes&limit=10"
+```
+
+```typescript JavaScript
+const response = await fetch(
+  'http://localhost:3030/search?q=meeting+notes&limit=10'
+);
+const data = await response.json();
+
+console.log(data.data);  // Array of content items
+console.log(data.pagination);  // { limit, offset, total }
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'http://localhost:3030/search',
+    params={'q': 'meeting notes', 'limit': 10}
+)
+
+data = response.json()
+for item in data['data']:
+    print(item['content'])
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="q" type="string">
+  Search query text. Searches both OCR text and audio transcriptions.
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+  Number of results to return (max 1000).
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Pagination offset.
+</ParamField>
+
+<ParamField query="content_type" type="enum">
+  Filter by content type:
+  - `all` (default)
+  - `ocr` (screen text only)
+  - `audio` (transcriptions only)
+  - `ui` (UI events)
+</ParamField>
+
+<ParamField query="start_time" type="datetime">
+  Start of time range (ISO 8601 or Unix timestamp).
+</ParamField>
+
+<ParamField query="end_time" type="datetime">
+  End of time range (ISO 8601 or Unix timestamp).
+</ParamField>
+
+<ParamField query="app_name" type="string">
+  Filter by application name (e.g., `Chrome`, `Code`).
+</ParamField>
+
+<ParamField query="window_name" type="string">
+  Filter by window title (partial match).
+</ParamField>
+
+<ParamField query="browser_url" type="string">
+  Filter by browser URL (partial match, works with Chrome, Safari, Firefox, Edge).
+</ParamField>
+
+<ParamField query="focused" type="boolean">
+  Only return content from focused windows.
+</ParamField>
+
+<ParamField query="speaker_ids" type="array">
+  Filter audio by speaker IDs (comma-separated: `0,1,2`).
+</ParamField>
+
+<ParamField query="speaker_name" type="string">
+  Filter audio by speaker name (case-insensitive partial match).
+</ParamField>
+
+<ParamField query="min_length" type="integer">
+  Minimum content length (characters).
+</ParamField>
+
+<ParamField query="max_length" type="integer">
+  Maximum content length (characters).
+</ParamField>
+
+<ParamField query="include_frames" type="boolean" default="false">
+  Include frame image data (base64-encoded).
+</ParamField>
+
+<ParamField query="max_content_length" type="integer">
+  Truncate content to this many characters (middle-truncation).
+</ParamField>
+
+## Advanced Queries
+
+### Time Range Search
+
+<CodeGroup>
+```bash Last Hour
+curl "http://localhost:3030/search?q=error&start_time=$(date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+```bash Specific Date Range
+curl "http://localhost:3030/search?q=presentation&start_time=2026-03-01T00:00:00Z&end_time=2026-03-08T23:59:59Z"
+```
+
+```typescript Relative Time
+const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+const response = await fetch(
+  `http://localhost:3030/search?q=meeting&start_time=${oneHourAgo}`
+);
+```
+</CodeGroup>
+
+<Info>
+  **Time formats supported**:
+  - ISO 8601: `2026-03-08T14:30:00Z`
+  - Unix timestamp: `1709911800`
+  - Relative: Use JavaScript `Date` or shell `date` command
+</Info>
+
+### Application-Specific Search
+
+<CodeGroup>
+```bash Search Chrome Only
+curl "http://localhost:3030/search?q=documentation&app_name=Chrome"
+```
+
+```bash Search VS Code
+curl "http://localhost:3030/search?q=function&app_name=Code&window_name=main.rs"
+```
+
+```bash Search Specific URL
+curl "http://localhost:3030/search?browser_url=github.com&q=pull+request"
+```
+</CodeGroup>
+
+<Tabs>
+  <Tab title="App Names">
+    Common app names:
+    - **macOS**: `Chrome`, `Safari`, `Code`, `Finder`, `Terminal`, `Slack`, `Zoom`
+    - **Windows**: `chrome.exe`, `code.exe`, `explorer.exe`, `cmd.exe`
+    - **Linux**: `chrome`, `code`, `nautilus`, `gnome-terminal`
+  </Tab>
+  
+  <Tab title="Browser URLs">
+    Browser URL extraction works for:
+    - Google Chrome
+    - Safari (macOS)
+    - Firefox
+    - Microsoft Edge
+    
+    Partial matching supported:
+    ```bash
+    browser_url=github.com       # Matches any GitHub URL
+    browser_url=docs.screenpi.pe # Matches docs site
+    ```
+  </Tab>
+</Tabs>
+
+### Speaker-Specific Search
+
+<CodeGroup>
+```bash Search Speaker 0
+curl "http://localhost:3030/search?q=roadmap&speaker_ids=0&content_type=audio"
+```
+
+```bash Multiple Speakers
+curl "http://localhost:3030/search?q=meeting&speaker_ids=0,1,2&content_type=audio"
+```
+
+```bash Named Speaker
+curl "http://localhost:3030/search?q=update&speaker_name=john&content_type=audio"
+```
+</CodeGroup>
+
+<Note>
+  Speaker IDs are assigned automatically during transcription. Use the `/speakers` endpoint to view and label speakers.
+</Note>
+
+## Search Implementation
+
+### Full-Text Search (FTS5)
+
+screenpipe uses SQLite FTS5 (full-text search) for fast keyword matching:
+
+<CodeGroup>
+```sql OCR Text Search
+-- FTS5 virtual table for OCR text
+CREATE VIRTUAL TABLE ocr_text_fts USING fts5(
+    ocr_text,
+    content='frames',
+    content_rowid='id'
+);
+
+-- Search query
+SELECT * FROM ocr_text_fts 
+WHERE ocr_text_fts MATCH 'meeting notes'
+ORDER BY rank;
+```
+
+```sql Audio Transcription Search
+-- FTS5 virtual table for audio
+CREATE VIRTUAL TABLE audio_transcriptions_fts USING fts5(
+    transcription,
+    content='audio_transcriptions',
+    content_rowid='id'
+);
+
+-- Search query
+SELECT * FROM audio_transcriptions_fts
+WHERE transcription MATCH 'quarterly review'
+ORDER BY rank;
+```
+</CodeGroup>
+
+<Info>
+  **FTS5 Features**:
+  - **Stemming**: Searches `running` match `run`, `runs`, `runner`
+  - **Ranking**: Results sorted by relevance (BM25 algorithm)
+  - **Phrase search**: Use quotes for exact phrases: `"screenpipe documentation"`
+  - **Boolean operators**: `meeting AND notes`, `bug OR error`
+</Info>
+
+### Accessibility Text Search
+
+New event-driven frames store accessibility text directly on the frame row:
+
+```sql
+-- Accessibility text is on frames table
+SELECT * FROM frames
+WHERE accessibility_text LIKE '%search term%'
+   OR frame_id IN (
+       SELECT rowid FROM accessibility_text_fts 
+       WHERE accessibility_text_fts MATCH 'search term'
+   )
+```
+
+<Note>
+  **Thumbnail correctness**: Since accessibility text is on the same row as the frame, search results always show the correct screenshot — no more desync between OCR text and thumbnails.
+</Note>
+
+### Search Cache
+
+Frequent searches are cached to reduce database load:
+
+<CodeGroup>
+```rust screenpipe-engine/src/routes/search.rs
+// Compute cache key from query parameters
+pub fn compute_search_cache_key(query: &SearchQuery) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    query.q.hash(&mut hasher);
+    query.pagination.limit.hash(&mut hasher);
+    query.content_type.hash(&mut hasher);
+    query.start_time.hash(&mut hasher);
+    query.end_time.hash(&mut hasher);
+    // ... hash all parameters
+    hasher.finish()
+}
+
+// Check cache before querying database
+let cache_key = compute_search_cache_key(&query);
+if let Some(cached) = state.search_cache.get(&cache_key).await {
+    return Ok(JsonResponse((*cached).clone()));
+}
+```
+
+```typescript Cache Behavior
+// Cached queries (no frame extraction)
+GET /search?q=meeting&limit=10
+  → Cache hit: <5ms
+  → Cache miss: ~50-200ms (DB query)
+
+// Uncached queries (include_frames=true)
+GET /search?q=meeting&include_frames=true
+  → Always queries DB: ~100-500ms (frame extraction)
+```
+</CodeGroup>
+
+## Search Response Format
+
+<CodeGroup>
+```json Response Structure
+{
+  "data": [
+    {
+      "type": "OCR",
+      "content": {
+        "frame_id": 12345,
+        "text": "Meeting notes from Q4 planning...",
+        "timestamp": "2026-03-08T14:23:00Z",
+        "file_path": "~/.screenpipe/data/2026-03-08/1709911380000_m0.jpg",
+        "app_name": "Notes",
+        "window_name": "Q4 Planning.txt",
+        "text_source": "accessibility",
+        "capture_trigger": "app_switch"
+      }
+    },
+    {
+      "type": "Audio",
+      "content": {
+        "chunk_id": 67890,
+        "transcription": "Let's review the roadmap for next quarter.",
+        "timestamp": "2026-03-08T14:25:00Z",
+        "device_name": "MacBook Pro Microphone",
+        "speaker_id": 0,
+        "speaker_name": "John Doe"
+      }
+    }
+  ],
+  "pagination": {
+    "limit": 10,
+    "offset": 0,
+    "total": 142
+  }
+}
+```
+
+```json OCR Content Fields
+{
+  "type": "OCR",
+  "content": {
+    "frame_id": 12345,
+    "text": "extracted text",
+    "timestamp": "2026-03-08T14:23:00Z",
+    "file_path": "snapshot path or null (legacy video chunks)",
+    "app_name": "application name",
+    "window_name": "window title",
+    "ocr_engine": "tesseract",
+    "focused": true,
+    "text_source": "accessibility" | "ocr",
+    "capture_trigger": "app_switch" | "click" | "typing_pause" | "idle",
+    "browser_url": "https://example.com" | null
+  }
+}
+```
+
+```json Audio Content Fields
+{
+  "type": "Audio",
+  "content": {
+    "chunk_id": 67890,
+    "transcription": "transcribed text",
+    "timestamp": "2026-03-08T14:25:00Z",
+    "device_name": "MacBook Pro Microphone",
+    "device_type": "input" | "output",
+    "speaker_id": 0,
+    "speaker_name": "John Doe" | null,
+    "tags": ["meeting", "planning"]
+  }
+}
+```
+</CodeGroup>
+
+## Performance
+
+### Search Speed
+
+<Tabs>
+  <Tab title="FTS5 Query">
+    - **Keyword search**: 10-50ms (indexed)
+    - **Time range filter**: +5-10ms
+    - **App/window filter**: +5-10ms
+    - **Total (cached)**: less than 5ms
+    - **Total (uncached)**: 20-100ms
+  </Tab>
+  
+  <Tab title="With Frame Extraction">
+    - **FTS5 query**: 20-100ms
+    - **Frame extraction**: 100-500ms per frame (old video chunks)
+    - **Frame direct serve**: less than 5ms per frame (new snapshots)
+    - **Total**: 100-1000ms depending on frame count
+  </Tab>
+</Tabs>
+
+<Warning>
+  **Timeout**: Search queries time out after 30 seconds. If you hit this limit, narrow your time range or add more filters.
+</Warning>
+
+### Optimization Tips
+
+<Steps>
+  <Step title="Use Time Filters">
+    Always specify `start_time`/`end_time` when possible:
+    ```bash
+    # Slow (searches entire database)
+    /search?q=meeting
+    
+    # Fast (searches last 24 hours)
+    /search?q=meeting&start_time=2026-03-07T00:00:00Z
+    ```
+  </Step>
+  
+  <Step title="Add Content Type Filters">
+    ```bash
+    # Slow (searches OCR + audio)
+    /search?q=error
+    
+    # Fast (searches OCR only)
+    /search?q=error&content_type=ocr
+    ```
+  </Step>
+  
+  <Step title="Avoid include_frames Unless Needed">
+    Frame extraction adds 100-500ms per result. Only use when displaying thumbnails:
+    ```bash
+    # Fast (metadata only)
+    /search?q=meeting&limit=100
+    
+    # Slow (includes frame extraction)
+    /search?q=meeting&limit=100&include_frames=true
+    ```
+  </Step>
+</Steps>
+
+## Reference
+
+Source files:
+- Search API: `crates/screenpipe-engine/src/routes/search.rs`
+- Database search: `crates/screenpipe-db/src/search.rs`
+- FTS5 schema: `crates/screenpipe-db/src/schema.sql`
+- Frame extraction: `crates/screenpipe-engine/src/video_utils.rs`

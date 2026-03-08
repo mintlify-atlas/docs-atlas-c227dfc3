@@ -1,97 +1,152 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Screenpipe Documentation"
+description: "AI memory for your screen - record, search, and automate everything you've seen, said, or heard"
 ---
 
-## Setting up
+# Welcome to Screenpipe
 
-Get your documentation site up and running in minutes.
+Screenpipe turns your computer into a personal AI that knows everything you've done. Record your screen and audio, search with AI, and automate workflows - all local, all private, all yours.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
   >
-    Edit your docs locally and preview them in real time.
+    Get up and running in under 5 minutes
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Installation"
+    icon="download"
+    href="/installation"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    Install the desktop app or CLI
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
+    title="Architecture"
+    icon="diagram-project"
+    href="/architecture"
   >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+    Learn how Screenpipe works
   </Card>
   <Card
-    title="Code samples"
+    title="API Reference"
     icon="code"
-    href="/essentials/code"
+    href="/api/introduction"
   >
-    Add sample code to demonstrate how to use your product.
+    Build with the REST API
+  </Card>
+</CardGroup>
+
+## Core Features
+
+<CardGroup cols={3}>
+  <Card
+    title="Screen Capture"
+    icon="display"
+    href="/features/screen-capture"
+  >
+    Event-driven capture with accessibility tree extraction
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="Audio Transcription"
+    icon="microphone"
+    href="/features/audio-transcription"
   >
-    Display images and other media.
+    Local Whisper transcription with speaker ID
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="AI Search"
+    icon="magnifying-glass"
+    href="/features/search"
   >
-    Write once and reuse across your docs.
+    Natural language search across everything
   </Card>
-</Columns>
+  <Card
+    title="Timeline View"
+    icon="clock"
+    href="/features/timeline"
+  >
+    Visual timeline of your screen history
+  </Card>
+  <Card
+    title="Pipes"
+    icon="wand-magic-sparkles"
+    href="/pipes/overview"
+  >
+    AI agents as markdown files
+  </Card>
+  <Card
+    title="Privacy First"
+    icon="lock"
+    href="/advanced/privacy-security"
+  >
+    100% local by default
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Popular Integrations
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={2}>
+  <Card
+    title="Claude Desktop"
+    icon="message-bot"
+    href="/integrations/claude-desktop"
+  >
+    Give Claude context about your screen
+  </Card>
+  <Card
+    title="Cursor"
+    icon="code"
+    href="/integrations/cursor"
+  >
+    Context-aware AI code editor
+  </Card>
+  <Card
+    title="ChatGPT"
+    icon="comments"
+    href="/integrations/chatgpt"
+  >
+    Search your screen from ChatGPT
+  </Card>
+  <Card
+    title="Obsidian"
+    icon="book"
+    href="/integrations/obsidian"
+  >
+    Sync activity to your vault
+  </Card>
+</CardGroup>
+
+## For Developers
+
+<CardGroup cols={2}>
+  <Card
+    title="JavaScript SDK"
+    icon="js"
+    href="/developers/javascript-sdk"
+  >
+    Build pipes with TypeScript/JavaScript
+  </Card>
+  <Card
+    title="REST API"
+    icon="webhook"
+    href="/developers/api-overview"
+  >
+    Query screen data via HTTP
+  </Card>
+  <Card
+    title="CLI Reference"
+    icon="terminal"
+    href="/developers/cli-reference"
+  >
+    Command-line interface docs
+  </Card>
+  <Card
+    title="Contributing"
+    icon="code-pull-request"
+    href="/developers/contributing"
+  >
+    Contribute to the open source project
+  </Card>
+</CardGroup>

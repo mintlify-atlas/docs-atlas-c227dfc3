@@ -1,0 +1,411 @@
+---
+title: Data Permissions
+description: Fine-grained control over what data AI agents can access
+---
+
+Pipe data permissions give admins deterministic, OS-level control over what data AI agents can access. Not prompt-based — even a compromised agent cannot access denied data.
+
+## Why data permissions?
+
+By default, a pipe has full access to all screenpipe data: every app, every window, all content types, 24/7. This is fine for personal pipes, but problematic for:
+
+- **Team deployments**: Admins need to prevent AI agents from accessing sensitive apps (1Password, banking, HR tools)
+- **Compliance**: HIPAA, GDPR, SOC 2 require deterministic access control
+- **Privacy**: Users want to run third-party pipes without giving full access
+- **Security**: A malicious or buggy pipe shouldn't be able to exfiltrate password manager data
+
+Data permissions solve this by letting you restrict access in the pipe's YAML frontmatter.
+
+## YAML frontmatter fields
+
+All fields are optional. Omitting a field means "no restrictions."
+
+### App filtering
+
+<CodeGroup>
+```yaml Allow specific apps only
+allow-apps:
+  - Slack
+  - Notion
+  - VS Code
+```
+
+```yaml Deny specific apps
+deny-apps:
+  - 1Password
+  - Signal
+  - Banking
+```
+
+```yaml Combination (deny wins)
+allow-apps:
+  - Slack
+  - Notion
+deny-apps:
+  - "Slack - DMs"  # Deny wins over allow
+```
+</CodeGroup>
+
+- Case-insensitive substring matching: `"slack"` matches `"Slack"`, `"slack.app"`, `"Slack - General"`
+- `deny-apps` always wins over `allow-apps`
+- Empty `allow-apps` = allow all (except denied)
+
+### Window filtering
+
+<CodeGroup>
+```yaml Allow windows matching patterns
+allow-windows:
+  - "*meeting*"
+  - "*standup*"
+```
+
+```yaml Deny windows matching patterns
+deny-windows:
+  - "*incognito*"
+  - "*private*"
+  - "*bank*"
+  - "*1password*"
+```
+</CodeGroup>
+
+- Glob patterns: `*` matches any sequence, `?` matches any single character
+- Case-insensitive
+- `deny-windows` always wins over `allow-windows`
+
+<Note>
+Window titles are the text in the app's title bar. For browsers, this is usually the page title. For editors, it's the file name.
+
+Examples:
+- Chrome: `"Google Docs - Project Plan"`
+- VS Code: `"screenpipe-js/index.ts - VS Code"`
+- Zoom: `"Zoom Meeting - Standup"`
+</Note>
+
+### Content type filtering
+
+<CodeGroup>
+```yaml Allow specific content types
+allow-content-types:
+  - ocr
+  - audio
+```
+
+```yaml Deny specific content types
+deny-content-types:
+  - input  # Block typing, clicks, clipboard
+```
+</CodeGroup>
+
+Available content types:
+- `ocr` — Text extracted from screen (accessibility tree + OCR fallback)
+- `audio` — Speech transcriptions
+- `input` — Typing, clicks, clipboard, app switches
+- `accessibility` — UI elements (buttons, labels, menus)
+
+`deny-content-types` wins over `allow-content-types`.
+
+### Time & day restrictions
+
+<CodeGroup>
+```yaml Work hours only
+time-range: "09:00-18:00"
+```
+
+```yaml Night shift (wraps midnight)
+time-range: "22:00-06:00"
+```
+
+```yaml Weekdays only
+days: "Mon,Tue,Wed,Thu,Fri"
+```
+
+```yaml Weekends only
+days: "Sat,Sun"
+```
+
+```yaml Combination
+time-range: "09:00-17:00"
+days: "Mon,Tue,Wed,Thu,Fri"
+# Only work hours on weekdays
+```
+</CodeGroup>
+
+- `time-range`: Format is `HH:MM-HH:MM` in 24-hour time. Uses local timezone.
+- `days`: Comma-separated. Accepts `Mon`, `Monday`, `Tue`, etc.
+- Both filters use the timestamp of the data item (when it was captured), not when the pipe runs.
+
+### Endpoint gating
+
+<CodeGroup>
+```yaml Block raw SQL
+allow-raw-sql: false
+```
+
+```yaml Block frame/screenshot access
+allow-frames: false
+```
+</CodeGroup>
+
+- `allow-raw-sql`: If `false`, the pipe cannot call `/raw_sql` endpoint. Default: `true`.
+- `allow-frames`: If `false`, the pipe cannot access `/frames/*` endpoints (screenshots). Default: `true`.
+
+<Warning>
+Raw SQL access bypasses all other filters. If a pipe has `allow-raw-sql: true`, it can query the SQLite database directly and potentially access data outside its app/window/time restrictions.
+
+For team deployments, always set `allow-raw-sql: false` unless explicitly needed.
+</Warning>
+
+## Complete example
+
+Here's a pipe for team standups that only accesses work-related data during business hours:
+
+```yaml
+---
+schedule: "0 9 * * MON"  # Every Monday at 9 AM
+enabled: true
+model: claude-haiku-4-5
+
+# Only allow work apps
+allow-apps:
+  - Slack
+  - Notion
+  - GitHub
+  - VS Code
+  - Linear
+  - Figma
+
+# Block sensitive apps
+deny-apps:
+  - 1Password
+  - Signal
+  - Messages
+
+# Block sensitive windows
+deny-windows:
+  - "*incognito*"
+  - "*private*"
+  - "*bank*"
+  - "*payroll*"
+
+# Only OCR and audio (no typing or clipboard)
+allow-content-types:
+  - ocr
+  - audio
+
+# Only weekdays, work hours
+time-range: "09:00-18:00"
+days: "Mon,Tue,Wed,Thu,Fri"
+
+# Block raw SQL and frames
+allow-raw-sql: false
+allow-frames: false
+---
+
+You are a standup generator.
+
+1. Query screenpipe for the last week (Monday-Friday, 9am-6pm only)
+2. Summarize what the user worked on by project
+3. Extract any blockers or issues mentioned
+4. Write to ./output/standup.md
+
+...
+```
+
+This pipe:
+- ✅ Can access Slack, Notion, GitHub during work hours
+- ❌ Cannot access 1Password or incognito windows
+- ❌ Cannot see what was typed or copied
+- ❌ Cannot query raw SQL or view screenshots
+- ❌ Cannot access any data outside 9am-6pm on weekdays
+
+## Three-layer enforcement
+
+Permissions are enforced at three independent layers:
+
+### 1. Skill gating (prevent agent from learning)
+
+If a pipe has `allow-raw-sql: false`, the Pi agent doesn't get the skill/tool for raw SQL queries. The agent doesn't even know the endpoint exists.
+
+Similarly for `allow-frames: false` — the agent doesn't learn about screenshot endpoints.
+
+This prevents the agent from **attempting** unauthorized actions.
+
+### 2. Agent interception (block before execution)
+
+If skill gating is bypassed (e.g., agent hallucinates an API call), the Pi extension intercepts API calls before execution. It:
+
+1. Parses the HTTP request URL and params
+2. Checks against `PipePermissions` (from `SCREENPIPE_PIPE_PERMISSIONS` env var)
+3. Filters results based on app, window, content type, time, day
+4. Returns filtered results (or error if endpoint is blocked)
+
+The agent sees a successful response but gets only allowed data.
+
+### 3. Server middleware (enforce at API boundary)
+
+If agent interception is bypassed (e.g., agent spawns a curl subprocess), the screenpipe server middleware validates every request:
+
+1. Extracts `pipe_token` from `X-Pipe-Token` header
+2. Looks up associated `PipePermissions` in the token registry
+3. Blocks requests to denied endpoints (e.g., `/raw_sql` if `allow-raw-sql: false`)
+4. Filters response data based on permissions
+
+This is the final enforcement layer. Even if the agent tries to bypass the extension, the server rejects unauthorized requests.
+
+### Why three layers?
+
+1. **Skill gating**: Performance — don't waste tokens teaching the agent about skills it can't use
+2. **Agent interception**: User experience — filter results transparently without error messages
+3. **Server middleware**: Security — enforce at the trust boundary, even if agent is compromised
+
+All three layers use the same `PipePermissions` struct, ensuring consistency.
+
+## How permissions are resolved
+
+1. **Queue time**: When the scheduler queues a pipe execution, it calls `PipePermissions::from_config(&pipe_config)` to resolve the YAML frontmatter into a `PipePermissions` struct.
+2. **Token generation**: A cryptographic token is generated and associated with the permissions in the token registry (a `DashMap` on the app state).
+3. **Agent spawn**: The `PipePermissions` struct is serialized to JSON and passed as the `SCREENPIPE_PIPE_PERMISSIONS` env var to the Pi agent subprocess. The token is stored in the agent's config.
+4. **API calls**: When the agent calls the screenpipe API, it includes the token in the `X-Pipe-Token` header. The server middleware validates the token and enforces permissions.
+5. **Cleanup**: When the execution finishes (completed, failed, or cancelled), the token is removed from the registry.
+
+## Permission semantics
+
+### Deny always wins
+
+If a field appears in both allow and deny lists, deny wins:
+
+```yaml
+allow-apps: ["Slack"]
+deny-apps: ["Slack"]  # Deny wins — Slack is blocked
+```
+
+### Empty allow = allow all
+
+If `allow-apps` is empty (or omitted), all apps are allowed (except explicitly denied):
+
+```yaml
+# No allow-apps field = allow all apps
+deny-apps: ["1Password"]  # Block only 1Password
+```
+
+### Filters are AND
+
+All filters must pass for a data item to be included:
+
+```yaml
+allow-apps: ["Slack"]
+allow-content-types: ["ocr"]
+time-range: "09:00-17:00"
+```
+
+A data item is included only if:
+- App is Slack, **AND**
+- Content type is OCR, **AND**
+- Timestamp is between 9am-5pm
+
+### Time filters use data timestamp
+
+`time-range` and `days` filter by the **timestamp of the data** (when it was captured), not when the pipe runs.
+
+Example:
+```yaml
+schedule: "0 8 * * *"  # Runs at 8 AM
+time-range: "09:00-17:00"
+```
+
+The pipe runs at 8 AM but only sees data captured between 9 AM - 5 PM (from previous days).
+
+## Testing permissions
+
+### Manual test runs
+
+Run the pipe manually via UI and check the output. If data is missing, check:
+
+1. Does the pipe's frontmatter allow that app/window/content type?
+2. Is the data timestamp within the allowed time range?
+3. Are you using `allow-raw-sql: true`? (Try setting to `false` to isolate)
+
+### Check logs
+
+Execution logs (`~/.screenpipe/pipes/{pipe_name}/logs/{timestamp}.json`) include:
+- The resolved `PipePermissions` (what the agent was allowed to access)
+- API calls made (endpoint, params, response size)
+- Any permission-denied errors
+
+### Permission-denied responses
+
+If the agent tries to access denied data, the API returns:
+
+```json
+{
+  "error": "Permission denied: endpoint /raw_sql not allowed for this pipe"
+}
+```
+
+or
+
+```json
+{
+  "data": [],
+  "message": "All results filtered by pipe permissions"
+}
+```
+
+Check the agent's stderr in the logs for these messages.
+
+## Team deployments
+
+For screenpipe Teams, admins can push pipe configs with data permissions to all employees:
+
+1. Admin creates a pipe with strict permissions in the admin dashboard
+2. Pipe is synced to all team members' devices
+3. Employees can run the pipe but cannot modify its permissions (config is read-only)
+4. Employees can add **stricter** filters (e.g., also block personal email) via override rules, but cannot weaken admin-set restrictions
+
+[Learn more about screenpipe Teams →](https://screenpi.pe/team)
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Can I bypass permissions by using raw SQL?">
+    No. If `allow-raw-sql: false`, the server middleware blocks `/raw_sql` requests entirely. The agent gets a 403 error.
+
+    Even if `allow-raw-sql: true`, the agent can only query the database — all app/window/time filters are still enforced at the server middleware layer (the SQL query must include WHERE clauses that respect the permissions).
+  </Accordion>
+
+  <Accordion title="Can the agent spawn a subprocess to bypass the extension?">
+    The extension filters API calls, but if the agent spawns a subprocess (e.g., `curl`), the request goes directly to the server. This is why **server middleware** is the final enforcement layer — it validates all requests regardless of how they're made.
+  </Accordion>
+
+  <Accordion title="Do permissions affect manual runs?">
+    Yes. Permissions are enforced for both scheduled and manual runs. The frontmatter is always respected.
+  </Accordion>
+
+  <Accordion title="Can I use environment-specific permissions?">
+    Not directly. Permissions are defined in `pipe.md` and apply to all runs. Workaround: create multiple pipes with different names and permissions (e.g., `standup-dev`, `standup-prod`).
+  </Accordion>
+
+  <Accordion title="What if I have no restrictions?">
+    If all permission fields are omitted (or set to defaults), `PipePermissions::has_any_restrictions()` returns `false`. The agent runs with full access, and the permissions file is not written (saves resources).
+  </Accordion>
+
+  <Accordion title="Can permissions restrict output files?">
+    No. Permissions only control **input** data (what the agent reads from screenpipe). The agent can write to `./output/` and call external APIs regardless of permissions.
+
+    To restrict output, use file system permissions on the pipe's directory.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Pipes" icon="code" href="/pipes/creating-pipes">
+    Step-by-step guide to writing pipes
+  </Card>
+  <Card title="Examples" icon="book-open" href="/pipes/examples">
+    Real pipe examples with various permission patterns
+  </Card>
+  <Card title="Teams" icon="users" href="https://screenpi.pe/team">
+    Deploy pipes with centralized permissions to your team
+  </Card>
+</CardGroup>

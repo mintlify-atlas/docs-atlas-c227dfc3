@@ -1,0 +1,558 @@
+---
+title: Installation
+description: Detailed installation instructions for macOS, Windows, and Linux
+---
+
+## Overview
+
+screenpipe is available as:
+
+1. **Desktop app** (recommended) - One-time purchase with auto-updates
+2. **Build from source** - For developers and contributors
+
+<Note>
+  The CLI package (`npx screenpipe`) has been discontinued. Use the desktop app instead.
+</Note>
+
+## System Requirements
+
+Before installing, make sure your system meets these requirements:
+
+| Platform | Minimum Requirements |
+|----------|---------------------|
+| **macOS** | macOS 11+ (Big Sur or later), 8 GB RAM, ~10 GB disk space |
+| **Windows** | Windows 10/11, 8 GB RAM, ~10 GB disk space |
+| **Linux** | Ubuntu 20.04+ or equivalent, 8 GB RAM, ~10 GB disk space |
+
+<Info>
+  screenpipe uses ~5-10 GB disk space per month. Event-driven capture only stores frames when something changes, reducing storage by ~90% compared to continuous recording.
+</Info>
+
+## Desktop App Installation
+
+<Tabs>
+  <Tab title="macOS">
+    <Steps>
+      <Step title="Download">
+        Visit [screenpi.pe/onboarding](https://screenpi.pe/onboarding) and download the `.dmg` installer.
+        
+        Both Apple Silicon and Intel Macs are fully supported.
+      </Step>
+
+      <Step title="Install">
+        1. Open the downloaded `.dmg` file
+        2. Drag screenpipe to your Applications folder
+        3. Eject the disk image
+      </Step>
+
+      <Step title="Launch">
+        1. Open screenpipe from Applications
+        2. If you see **"screenpipe cannot be opened because it is from an unidentified developer"**:
+           - Go to System Settings > Privacy & Security
+           - Scroll down to find "screenpipe was blocked from use"
+           - Click **"Open Anyway"**
+           - Confirm by clicking **"Open"**
+      </Step>
+
+      <Step title="Grant Permissions">
+        screenpipe requires the following permissions:
+        
+        **Screen Recording** (Required)
+        1. screenpipe will prompt for Screen Recording access
+        2. Click **"Open System Settings"**
+        3. Enable the toggle next to screenpipe
+        4. Restart screenpipe
+        
+        **Accessibility** (Required)
+        1. Go to System Settings > Privacy & Security > Accessibility
+        2. Click the **+** button and select screenpipe
+        3. Enable the toggle next to screenpipe
+        
+        **Microphone** (Optional)
+        - Only needed if you want audio transcription
+        - screenpipe will prompt when you enable audio capture
+        
+        <Warning>
+          These permissions are required for screenpipe to function. Without Screen Recording and Accessibility access, the app cannot capture your screen or extract text.
+        </Warning>
+      </Step>
+
+      <Step title="Verify Installation">
+        After granting permissions:
+        1. Click the screenpipe icon in the menu bar
+        2. Select **"Start Recording"**
+        3. Use your computer for a minute
+        4. Open the timeline view to see your captured activity
+      </Step>
+    </Steps>
+
+    ### macOS-Specific Notes
+
+    - **Dev builds**: If you're building from source, dev builds are signed with a developer certificate for consistent permissions. Other devs without the cert will see permission issues—the onboarding has a "continue anyway" button after 5s.
+    - **Data location**: All data is stored in `~/.screenpipe/`
+    - **Uninstall**: Drag screenpipe from Applications to Trash, then delete `~/.screenpipe/` to remove all data
+  </Tab>
+
+  <Tab title="Windows">
+    <Steps>
+      <Step title="Download">
+        Visit [screenpi.pe/onboarding](https://screenpi.pe/onboarding) and download the `.exe` installer for Windows 10 or 11.
+      </Step>
+
+      <Step title="Install">
+        1. Run the downloaded `.exe` file
+        2. If Windows SmartScreen appears, click **"More info"** then **"Run anyway"**
+        3. Follow the installation wizard
+        4. Choose installation location (default: `C:\Program Files\screenpipe`)
+        5. Click **"Install"**
+      </Step>
+
+      <Step title="Firewall Permission">
+        Windows will prompt you to allow screenpipe through the firewall:
+        
+        1. Check **both** "Private networks" and "Public networks"
+        2. Click **"Allow access"**
+        
+        This is required for the local API server (runs on `localhost:3030`).
+      </Step>
+
+      <Step title="Launch">
+        - Start screenpipe from the Start menu or desktop shortcut
+        - The app will appear in your system tray (taskbar notification area)
+      </Step>
+
+      <Step title="Verify Installation">
+        1. Right-click the screenpipe icon in the system tray
+        2. Select **"Start Recording"**
+        3. Use your computer for a minute
+        4. Open the app to see your timeline
+      </Step>
+    </Steps>
+
+    ### Windows-Specific Notes
+
+    - **No additional permissions required**: Unlike macOS, Windows doesn't require explicit screen recording permissions
+    - **Data location**: All data is stored in `%APPDATA%\screenpipe\`
+    - **Uninstall**: Use Windows Settings > Apps > screenpipe > Uninstall, then delete `%APPDATA%\screenpipe\` to remove all data
+  </Tab>
+
+  <Tab title="Linux">
+    <Note>
+      Linux support is available but requires building from source. Pre-built binaries are not available yet.
+    </Note>
+
+    See [Build from Source](#build-from-source) below for Linux installation instructions.
+  </Tab>
+</Tabs>
+
+## Build from Source
+
+For developers and contributors who want to build screenpipe from source:
+
+<Tabs>
+  <Tab title="macOS">
+    <Steps>
+      <Step title="Install dependencies">
+        ```bash
+        # Install Rust
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+        
+        # Install system dependencies via Homebrew
+        brew install pkg-config ffmpeg jq cmake wget git-lfs
+        ```
+        
+        **Install Xcode** (required):
+        - Download from the App Store
+        - Accept the license and run first launch:
+        ```bash
+        sudo xcodebuild -license
+        xcodebuild -runFirstLaunch
+        ```
+        
+        <Warning>
+          Xcode command line tools alone are insufficient. You need the full Xcode app.
+        </Warning>
+      </Step>
+
+      <Step title="Install Bun">
+        ```bash
+        curl -fsSL https://bun.sh/install | bash
+        ```
+        
+        <Info>
+          screenpipe uses Bun (not npm or pnpm) for JavaScript/TypeScript development.
+        </Info>
+      </Step>
+
+      <Step title="Clone and build">
+        ```bash
+        # Clone the repository
+        git clone https://github.com/screenpipe/screenpipe
+        cd screenpipe
+        
+        # Build the core engine
+        cargo build --release --features metal,apple-intelligence
+        
+        # Run the engine
+        ./target/release/screenpipe
+        ```
+        
+        The `metal` feature enables GPU acceleration on Apple Silicon, and `apple-intelligence` enables on-device AI processing.
+      </Step>
+
+      <Step title="Build the desktop app (optional)">
+        ```bash
+        cd apps/screenpipe-app-tauri
+        bun install
+        bun tauri build --features metal,apple-intelligence
+        ```
+        
+        The built app will be in `apps/screenpipe-app-tauri/src-tauri/target/release/bundle/`.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Windows">
+    <Steps>
+      <Step title="Install winget">
+        If you don't have `winget`, install it from [winget.pro/winget-install-powershell](https://winget.pro/winget-install-powershell/).
+      </Step>
+
+      <Step title="Install dependencies">
+        Open PowerShell as Administrator and run:
+        
+        ```powershell
+        # Install build tools
+        winget install -e --id Microsoft.VisualStudio.2022.BuildTools
+        winget install -e --id Rustlang.Rustup
+        winget install -e --id LLVM.LLVM
+        winget install -e --id Kitware.CMake
+        winget install -e --id GnuWin32.UnZip
+        winget install -e --id Git.Git
+        winget install -e --id JernejSimoncic.Wget
+        winget install -e --id 7zip.7zip
+        
+        # Install Bun
+        irm https://bun.sh/install.ps1 | iex
+        ```
+      </Step>
+
+      <Step title="Set environment variables">
+        ```powershell
+        [System.Environment]::SetEnvironmentVariable('LIBCLANG_PATH', 'C:\Program Files\LLVM\bin', 'User')
+        [System.Environment]::SetEnvironmentVariable('PATH', "$([System.Environment]::GetEnvironmentVariable('PATH', 'User'));C:\Program Files (x86)\GnuWin32\bin", 'User')
+        ```
+        
+        Close and reopen PowerShell after setting environment variables.
+      </Step>
+
+      <Step title="Clone the repository">
+        ```powershell
+        git clone https://github.com/screenpipe/screenpipe.git
+        cd screenpipe
+        ```
+      </Step>
+
+      <Step title="Install vcredist">
+        ```powershell
+        $path = "C:\Windows\System32\vcruntime140.dll"
+        
+        if (-Not (Test-Path $path)) {
+            Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command "& {
+                Set-ExecutionPolicy Bypass -Scope Process -Force
+                [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+                $url = ''https://vcredist.com/install.ps1''
+                $scriptPath = ''$env:TEMP\install_vcredist.ps1''
+                Invoke-WebRequest -Uri $url -OutFile $scriptPath
+                & $scriptPath
+            }"' -Wait
+        }
+        
+        # Copy to build directory
+        $vcredist_dir = (pwd).Path + "\apps\screenpipe-app-tauri\src-tauri\vcredist"
+        New-Item -ItemType Directory -Force -Path $vcredist_dir | Out-Null
+        Copy-Item $path -Destination $vcredist_dir -Force
+        ```
+      </Step>
+
+      <Step title="Build">
+        ```powershell
+        # Build the engine
+        cargo build --release
+        
+        # Build the desktop app
+        cd apps/screenpipe-app-tauri
+        bun install
+        bun tauri build
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Linux">
+    <Steps>
+      <Step title="Install dependencies">
+        ```bash
+        # Install system dependencies (Ubuntu/Debian)
+        sudo apt-get update
+        sudo apt-get install -y \
+          g++ \
+          ffmpeg \
+          tesseract-ocr \
+          cmake \
+          libavformat-dev \
+          libavfilter-dev \
+          libavdevice-dev \
+          libssl-dev \
+          libtesseract-dev \
+          libxdo-dev \
+          libsdl2-dev \
+          libclang-dev \
+          libxtst-dev \
+          libpipewire-0.3-dev
+        
+        # Install Rust
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+        source ~/.bashrc
+        ```
+      </Step>
+
+      <Step title="Install Bun">
+        ```bash
+        curl -fsSL https://bun.sh/install | bash
+        ```
+      </Step>
+
+      <Step title="Optional: Install Vulkan (for AMD GPU acceleration)">
+        ```bash
+        sudo apt-get install -y libvulkan-dev glslc
+        ```
+      </Step>
+
+      <Step title="Clone and build">
+        ```bash
+        git clone https://github.com/screenpipe/screenpipe
+        cd screenpipe
+        
+        # Build the engine
+        cargo build --release
+        
+        # Run the engine
+        ./target/release/screenpipe
+        ```
+      </Step>
+
+      <Step title="Build the desktop app (optional)">
+        ```bash
+        # Install additional dependencies for Tauri
+        sudo apt-get install -y \
+          libayatana-appindicator3-1 \
+          libayatana-appindicator3-dev \
+          librsvg2-dev \
+          libwebkit2gtk-4.1-dev
+        
+        # Build the app
+        cd apps/screenpipe-app-tauri
+        bun install
+        bun tauri build
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+### Running from Source
+
+After building from source:
+
+<CodeGroup>
+```bash Run the engine
+# Run with default settings
+./target/release/screenpipe
+
+# Run on a different port
+./target/release/screenpipe --port 3035
+
+# Use a different data directory (useful for testing)
+./target/release/screenpipe --data-dir /tmp/sp
+```
+
+```bash Run tests
+# Run all tests
+cargo test
+
+# Run benchmarks
+cargo bench
+```
+</CodeGroup>
+
+<Info>
+  When running dev builds alongside production, use `--port` and `--data-dir` flags to avoid conflicts.
+</Info>
+
+## Data Storage
+
+screenpipe stores all data locally in these locations:
+
+| Platform | Location |
+|----------|----------|
+| **macOS** | `~/.screenpipe/` |
+| **Windows** | `%APPDATA%\screenpipe\` |
+| **Linux** | `~/.screenpipe/` |
+
+The data directory contains:
+
+```
+~/.screenpipe/
+├── db.sqlite              # SQLite database (metadata, text, audio)
+├── data/                  # Screenshot snapshots
+│   ├── 2026-03-08/       # Organized by date
+│   │   ├── 1709884800000_m0.jpg
+│   │   ├── 1709884803000_m0.jpg
+│   │   └── ...
+│   └── 2026-03-09/
+└── pipes/                 # Pipe configurations (AI agents)
+```
+
+<Info>
+  To back up your data, simply copy the entire `.screenpipe` directory. To reset, delete it and restart the app.
+</Info>
+
+## Verification
+
+After installation, verify screenpipe is working:
+
+<Steps>
+  <Step title="Check the health endpoint">
+    Open your browser and visit:
+    ```
+    http://localhost:3030/health
+    ```
+    
+    You should see:
+    ```json
+    {
+      "status": "ok",
+      "version": "1.x.x"
+    }
+    ```
+  </Step>
+
+  <Step title="Start recording and test search">
+    1. Start recording in the app
+    2. Use your computer for a few minutes
+    3. Try a search query:
+    ```bash
+    curl "http://localhost:3030/search?q=test&limit=5"
+    ```
+  </Step>
+
+  <Step title="Check resource usage">
+    - **CPU**: Should be 5-10% during active use
+    - **RAM**: Should be 0.5-3 GB
+    - **Disk**: Check `~/.screenpipe/data/` for snapshots
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="macOS: Permission issues">
+    If recording isn't working:
+    1. Go to System Settings > Privacy & Security > Screen Recording
+    2. Remove screenpipe from the list
+    3. Quit and restart screenpipe
+    4. Grant permissions again when prompted
+    
+    <Warning>
+      Dev builds require the developer certificate for consistent permissions. If you're building from source without the cert, you may need to grant permissions after each rebuild.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Windows: Firewall blocking">
+    If the API isn't accessible:
+    1. Open Windows Security > Firewall & network protection
+    2. Click "Allow an app through firewall"
+    3. Find screenpipe and ensure both Private and Public are checked
+    4. Restart screenpipe
+  </Accordion>
+
+  <Accordion title="Linux: Missing dependencies">
+    If you get build errors:
+    ```bash
+    # Check for missing packages
+    pkg-config --list-all | grep -E 'tesseract|pipewire|sdl2'
+    
+    # Install any missing dependencies
+    sudo apt-get install -y libtesseract-dev libpipewire-0.3-dev libsdl2-dev
+    ```
+  </Accordion>
+
+  <Accordion title="Build errors: Database migrations">
+    If you encounter migration errors when building from source:
+    ```bash
+    # Remove problematic migration
+    sqlite3 ~/.screenpipe/db.sqlite "DELETE FROM _sqlx_migrations WHERE version = XXXXXXXXXX;"
+    
+    # Or reset completely (backup first!)
+    mv ~/.screenpipe/db.sqlite ~/.screenpipe/db.sqlite.backup
+    ```
+  </Accordion>
+
+  <Accordion title="High disk usage">
+    If storage is growing too fast:
+    - Lower capture sensitivity in settings (Low uses ~5 GB/month)
+    - Reduce the number of monitors being captured
+    - Set up automatic cleanup (Settings > Storage > Auto-delete after X days)
+  </Accordion>
+</AccordionGroup>
+
+## Uninstalling
+
+<Tabs>
+  <Tab title="macOS">
+    1. Quit screenpipe (right-click menu bar icon > Quit)
+    2. Drag screenpipe from Applications to Trash
+    3. Delete data directory:
+    ```bash
+    rm -rf ~/.screenpipe
+    ```
+    4. Revoke permissions (optional):
+       - System Settings > Privacy & Security > Screen Recording > Remove screenpipe
+       - System Settings > Privacy & Security > Accessibility > Remove screenpipe
+  </Tab>
+
+  <Tab title="Windows">
+    1. Close screenpipe (right-click system tray icon > Exit)
+    2. Windows Settings > Apps > screenpipe > Uninstall
+    3. Delete data directory:
+    ```powershell
+    Remove-Item -Recurse -Force "$env:APPDATA\screenpipe"
+    ```
+  </Tab>
+
+  <Tab title="Linux">
+    ```bash
+    # If installed from source
+    rm -rf ~/screenpipe
+    rm -rf ~/.screenpipe
+    ```
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Learn how to use screenpipe in 5 minutes
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    Understand how screenpipe works
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Explore the REST API
+  </Card>
+  <Card title="Join Discord" icon="discord" href="https://discord.gg/screenpipe">
+    Get help from the community
+  </Card>
+</CardGroup>

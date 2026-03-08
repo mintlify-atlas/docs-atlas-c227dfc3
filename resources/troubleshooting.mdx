@@ -1,0 +1,582 @@
+---
+title: 'Troubleshooting'
+description: 'Common issues and solutions for screenpipe'
+---
+
+# Troubleshooting
+
+Solutions to common problems with screenpipe installation and usage.
+
+## Installation Issues
+
+### macOS: "screenpipe is damaged and can't be opened"
+
+<Warning>
+This is a Gatekeeper security warning, not actual damage.
+</Warning>
+
+**Solution:**
+
+1. Right-click the screenpipe app → **Open**
+2. Click **Open** in the security dialog
+3. Or disable Gatekeeper temporarily:
+
+```bash
+sudo xattr -rd com.apple.quarantine /Applications/screenpipe.app
+```
+
+### macOS: "screenpipe wants to access Screen Recording"
+
+**Solution:**
+
+screenpipe needs screen recording permission to capture your screen:
+
+1. Go to **System Settings** → **Privacy & Security** → **Screen Recording**
+2. Enable the checkbox for **screenpipe**
+3. Restart screenpipe
+
+<Note>
+Dev builds are signed with a developer certificate for consistent permissions. If you rebuild from source, macOS may ask again.
+</Note>
+
+### Windows: "Windows protected your PC"
+
+**Solution:**
+
+1. Click **More info**
+2. Click **Run anyway**
+3. The installer will proceed normally
+
+This warning appears for new applications without widespread usage statistics.
+
+### Linux: Build fails with missing dependencies
+
+**Solution:**
+
+Install required dependencies:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install libsqlite3-dev libssl-dev pkg-config \
+  libasound2-dev libxcb1-dev libxrandr-dev libdbus-1-dev
+
+# Fedora
+sudo dnf install sqlite-devel openssl-devel alsa-lib-devel \
+  libxcb-devel libXrandr-devel dbus-devel
+
+# Arch
+sudo pacman -S sqlite openssl alsa-lib libxcb libxrandr dbus
+```
+
+Then rebuild:
+
+```bash
+cargo build --release
+```
+
+## Permission Issues
+
+### macOS: Screen recording not working
+
+**Symptoms:**
+- Blank screenshots
+- "Permission denied" errors
+- No screen data captured
+
+**Solution:**
+
+1. **System Settings** → **Privacy & Security** → **Screen Recording**
+2. Make sure **screenpipe** is checked
+3. If already checked:
+   - Uncheck it
+   - Restart screenpipe
+   - Check it again
+   - Restart screenpipe
+
+4. Check logs:
+```bash
+tail -f ~/.screenpipe/logs/screenpipe.log
+```
+
+### macOS: Audio recording not working
+
+**Symptoms:**
+- No audio transcriptions
+- Empty audio search results
+
+**Solution:**
+
+1. **System Settings** → **Privacy & Security** → **Microphone**
+2. Enable **screenpipe**
+3. For system audio, install audio driver:
+   - screenpipe will prompt on first run
+   - Or manually: Settings → Audio → Install System Audio Driver
+
+<Warning>
+System audio capture requires a virtual audio driver (BlackHole or similar). screenpipe will guide you through installation.
+</Warning>
+
+### Windows: No audio captured from applications
+
+**Solution:**
+
+1. Right-click speaker icon → **Sounds**
+2. **Recording** tab → Right-click **Stereo Mix** → **Enable**
+3. Set as default device
+4. Restart screenpipe
+
+If Stereo Mix isn't available:
+- Update audio drivers
+- Or use VB-Audio Virtual Cable (free)
+
+## Capture Issues
+
+### Screen captures are blank/black
+
+**Possible causes:**
+
+1. **Missing permissions** (macOS/Linux):
+   - Grant screen recording permission
+   - Restart screenpipe
+
+2. **HDR display** (Windows):
+   - Disable HDR temporarily: Settings → Display → Use HDR
+   - Or update to latest screenpipe version (improved HDR support)
+
+3. **Remote desktop session**:
+   - Accessibility/OCR may not work in RDP
+   - Try running screenpipe on the local machine
+
+4. **Missing snapshot files**:
+   - Check logs: `~/.screenpipe/logs/screenpipe.log`
+   - Recent fix in v2.2.80 handles missing snapshots gracefully
+
+**Debug:**
+```bash
+# Check capture directory
+ls -lah ~/.screenpipe/data/
+
+# View recent logs
+tail -100 ~/.screenpipe/logs/screenpipe.log
+```
+
+### Audio not recording
+
+**Checklist:**
+
+- [ ] Audio recording enabled in settings
+- [ ] Microphone permission granted
+- [ ] System audio driver installed (for app audio)
+- [ ] Audio device selected correctly
+- [ ] Volume not muted
+
+**Test audio:**
+
+1. Open screenpipe → Settings → Audio
+2. Check audio level meters while speaking
+3. If no movement:
+   - Try different audio device
+   - Check OS audio settings
+   - Restart audio service
+
+### Multi-monitor: Only one monitor captured
+
+**Solution:**
+
+1. Settings → Capture → Monitors
+2. Select **All monitors** or choose specific ones
+3. Restart capture
+
+screenpipe should auto-detect all monitors. If a monitor is missing:
+- Disconnect/reconnect monitor
+- Restart screenpipe
+- Check logs for detection errors
+
+### OCR text extraction is inaccurate
+
+**Causes:**
+
+- Low screen resolution
+- Unusual fonts
+- Images/graphics instead of text
+- Non-English text (needs language config)
+
+**Solutions:**
+
+1. **Prefer accessibility tree** (more accurate):
+   - Settings → Capture → Prefer Accessibility
+   - Only falls back to OCR when needed
+
+2. **Configure OCR language**:
+```bash
+# Edit config
+vim ~/.screenpipe/config.json
+
+# Add OCR language
+{
+  "ocr": {
+    "languages": ["eng", "spa", "fra"]
+  }
+}
+```
+
+3. **Increase capture quality**:
+   - Settings → Capture → Quality → High
+   - Uses more storage but better OCR
+
+## Performance Issues
+
+### High CPU usage
+
+**Expected:** 5-10% on modern hardware
+
+**If higher:**
+
+1. **Check event rate**:
+   - Settings → Capture → Event Sensitivity
+   - Reduce sensitivity if capturing too frequently
+
+2. **Disable unused features**:
+   - Disable audio if not needed
+   - Reduce monitor count
+   - Lower capture quality
+
+3. **Check for bugs**:
+```bash
+# Monitor CPU by process
+top -p $(pgrep screenpipe)
+
+# Check logs for errors
+tail -f ~/.screenpipe/logs/screenpipe.log
+```
+
+4. **Recent fixes**:
+   - v2.2.79+: Improved event-driven efficiency
+   - Update to latest version
+
+### High disk usage
+
+**Expected:** 5-10 GB/month
+
+**If higher:**
+
+1. **Check capture settings**:
+   - Too many monitors
+   - High capture quality
+   - Very frequent captures
+
+2. **Clean old data**:
+   - Settings → Storage → Clear Old Data
+   - Or manually delete frames:
+```bash
+# Delete data older than 30 days
+find ~/.screenpipe/data/ -mtime +30 -delete
+```
+
+3. **Adjust retention**:
+   - Settings → Storage → Auto-delete after X days
+
+### Slow search results
+
+**Solutions:**
+
+1. **Rebuild search index**:
+   - Settings → Advanced → Rebuild Index
+   - This recreates the FTS5 index
+
+2. **Optimize database**:
+```bash
+# Run SQLite vacuum
+sqlite3 ~/.screenpipe/data/db.sqlite "VACUUM;"
+```
+
+3. **Narrow search scope**:
+   - Use date range filters
+   - Filter by app/window
+   - Limit result count
+
+## API Issues
+
+### API not responding (localhost:3030)
+
+**Check if server is running:**
+
+```bash
+# Check port
+lsof -i :3030  # macOS/Linux
+netstat -ano | findstr :3030  # Windows
+
+# Test API
+curl http://localhost:3030/health
+```
+
+**If not running:**
+
+1. Check screenpipe is running
+2. Check logs for startup errors:
+```bash
+tail -50 ~/.screenpipe/logs/screenpipe.log
+```
+
+3. Try different port:
+```bash
+screenpipe --port 3031
+```
+
+### MCP server connection fails
+
+**For Claude Desktop / Cursor:**
+
+```bash
+# Reinstall MCP server
+claude mcp remove screenpipe
+claude mcp add screenpipe -- npx -y screenpipe-mcp
+```
+
+**Check MCP logs:**
+```bash
+# macOS
+~/Library/Logs/Claude/mcp*.log
+
+# Windows
+%APPDATA%\Claude\logs\mcp*.log
+```
+
+**Common issues:**
+- screenpipe not running
+- Port conflict (change from 3030)
+- Firewall blocking localhost
+
+## Data Issues
+
+### Missing data for certain time periods
+
+**Causes:**
+
+1. **screenpipe wasn't running**:
+   - Check uptime: Settings → Status → Running Since
+   - Enable "Start at login" to avoid gaps
+
+2. **Capture paused**:
+   - Settings → Capture → Resume
+   - Or use pause schedule for specific times
+
+3. **Excluded apps/windows**:
+   - Settings → Filters → Review exclusions
+   - May have filtered out more than intended
+
+4. **Disk full**:
+   - Check available space
+   - Clear old data if needed
+
+### Database corruption
+
+**Symptoms:**
+- "Database disk image is malformed"
+- Search errors
+- App crashes
+
+**Recovery:**
+
+```bash
+# 1. Stop screenpipe
+
+# 2. Backup database
+cp ~/.screenpipe/data/db.sqlite ~/.screenpipe/data/db.sqlite.backup
+
+# 3. Try to recover
+sqlite3 ~/.screenpipe/data/db.sqlite ".recover" | sqlite3 recovered.db
+
+# 4. If successful, replace
+mv recovered.db ~/.screenpipe/data/db.sqlite
+
+# 5. Restart screenpipe
+```
+
+If recovery fails:
+- Restore from backup (if available)
+- Or start fresh (will lose history)
+
+## Integration Issues
+
+### Obsidian sync pipe not working
+
+**Checklist:**
+
+- [ ] Pipe enabled: Settings → Pipes → Obsidian Sync
+- [ ] Vault path configured correctly
+- [ ] Obsidian vault is accessible
+- [ ] Permissions to write files
+
+**Test manually:**
+```bash
+# Check pipe config
+cat ~/.screenpipe/pipes/obsidian-sync/pipe.md
+
+# Run pipe manually
+screenpipe pipe run obsidian-sync
+```
+
+### Reminders pipe not creating todos
+
+**macOS only** - requires system permissions:
+
+1. **System Settings** → **Privacy** → **Reminders**
+2. Enable **screenpipe**
+3. Restart screenpipe
+
+**Check pipe logs:**
+```bash
+tail -f ~/.screenpipe/pipes/reminders/logs/latest.log
+```
+
+## CLI Issues
+
+### `npx screenpipe@latest record` fails
+
+**Solutions:**
+
+1. **Update Node.js**:
+```bash
+node --version  # Should be 18+
+```
+
+2. **Clear npm cache**:
+```bash
+npm cache clean --force
+npx clear-npx-cache
+```
+
+3. **Install directly**:
+```bash
+npm install -g screenpipe
+screenpipe record
+```
+
+### CLI: "Command not found"
+
+**Add to PATH:**
+
+```bash
+# macOS/Linux (add to ~/.bashrc or ~/.zshrc)
+export PATH="$PATH:$HOME/.screenpipe/bin"
+
+# Windows (System Properties → Environment Variables)
+# Add: %USERPROFILE%\.screenpipe\bin
+```
+
+## Logs & Debugging
+
+### Where are the logs?
+
+```bash
+# Logs directory
+~/.screenpipe/logs/         # macOS/Linux
+%USERPROFILE%\.screenpipe\logs\  # Windows
+
+# Main log
+~/.screenpipe/logs/screenpipe.log
+
+# Pipe logs
+~/.screenpipe/pipes/*/logs/
+```
+
+### Enable debug logging
+
+```bash
+# Set environment variable
+export SCREENPIPE_LOG=debug
+screenpipe
+
+# Or in config
+vim ~/.screenpipe/config.json
+{
+  "log_level": "debug"
+}
+```
+
+### Common log patterns
+
+**Permission denied:**
+```
+ERROR: Permission denied: screen recording
+```
+→ Grant screen recording permission
+
+**Audio driver missing:**
+```
+WARN: No system audio device found
+```
+→ Install audio driver
+
+**Port in use:**
+```
+ERROR: Address already in use (port 3030)
+```
+→ Change port or kill other process
+
+**Database locked:**
+```
+ERROR: database is locked
+```
+→ Another screenpipe instance running, or force quit:
+```bash
+pkill -9 screenpipe
+```
+
+## Getting Help
+
+### Before asking for help
+
+1. **Check logs**:
+```bash
+tail -100 ~/.screenpipe/logs/screenpipe.log
+```
+
+2. **Collect system info**:
+   - OS version
+   - screenpipe version (Settings → About)
+   - Relevant error messages
+
+3. **Try latest version**:
+   - Updates often fix known issues
+   - Download from [screenpi.pe/onboarding](https://screenpi.pe/onboarding)
+
+### Where to get help
+
+<Tip>
+The Discord community is the fastest way to get help from both the team and experienced users.
+</Tip>
+
+- **Discord**: [discord.gg/screenpipe](https://discord.gg/screenpipe) (fastest)
+- **GitHub Issues**: [Report bugs](https://github.com/screenpipe/screenpipe/issues)
+- **Documentation**: [docs.screenpi.pe](https://docs.screenpi.pe)
+- **Email**: louis@screenpi.pe (for sensitive issues)
+
+### Creating a good bug report
+
+Include:
+
+1. **System info**:
+   - OS and version
+   - screenpipe version
+   - Hardware (CPU, RAM, monitors)
+
+2. **Problem description**:
+   - What you expected
+   - What actually happened
+   - Steps to reproduce
+
+3. **Logs**:
+```bash
+# Last 100 lines of log
+tail -100 ~/.screenpipe/logs/screenpipe.log
+```
+
+4. **Screenshots** (if UI issue)
+
+---
+
+**Still stuck?**
+
+Join [Discord](https://discord.gg/screenpipe) for real-time help from the community.

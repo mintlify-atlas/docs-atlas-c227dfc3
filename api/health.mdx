@@ -1,0 +1,490 @@
+---
+title: "Health"
+description: "Monitor Screenpipe system health and pipeline metrics"
+---
+
+# Health Check
+
+The health endpoint provides comprehensive system status information, including pipeline metrics for vision and audio processing.
+
+## Endpoint
+
+```
+GET /health
+```
+
+## Example
+
+```bash
+curl "http://localhost:3030/health"
+```
+
+## Response
+
+<ResponseField name="status" type="string">
+  Overall health status: `"healthy"` or `"degraded"`
+</ResponseField>
+
+<ResponseField name="status_code" type="integer">
+  HTTP status code: 200 for healthy, 503 for degraded
+</ResponseField>
+
+<ResponseField name="last_frame_timestamp" type="string" format="date-time" optional>
+  Timestamp of the most recent frame captured
+</ResponseField>
+
+<ResponseField name="last_audio_timestamp" type="string" format="date-time" optional>
+  Timestamp of the most recent audio chunk
+</ResponseField>
+
+<ResponseField name="frame_status" type="string">
+  Status of frame capture pipeline
+  
+  Values:
+  - `"ok"` - Working normally
+  - `"stale"` - No recent frames (may indicate issue)
+  - `"not_started"` - Pipeline not yet started
+  - `"disabled"` - Frame capture disabled in settings
+</ResponseField>
+
+<ResponseField name="audio_status" type="string">
+  Status of audio recording pipeline
+  
+  Values: Same as frame_status
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable status message
+</ResponseField>
+
+<ResponseField name="verbose_instructions" type="string" optional>
+  Detailed troubleshooting instructions if there are issues
+</ResponseField>
+
+<ResponseField name="device_status_details" type="string" optional>
+  Specific device status information
+</ResponseField>
+
+<ResponseField name="monitors" type="array" optional>
+  List of detected monitors/displays
+</ResponseField>
+
+<ResponseField name="pipeline" type="object" optional>
+  Detailed vision pipeline metrics
+  
+  <Expandable title="Vision Pipeline Metrics">
+    <ResponseField name="uptime_secs" type="number">
+      Pipeline uptime in seconds
+    </ResponseField>
+    
+    <ResponseField name="frames_captured" type="integer">
+      Total frames captured since start
+    </ResponseField>
+    
+    <ResponseField name="frames_db_written" type="integer">
+      Frames successfully written to database
+    </ResponseField>
+    
+    <ResponseField name="frames_dropped" type="integer">
+      Number of frames dropped due to performance issues
+    </ResponseField>
+    
+    <ResponseField name="frame_drop_rate" type="number">
+      Percentage of frames dropped (0.0 to 1.0)
+    </ResponseField>
+    
+    <ResponseField name="capture_fps_actual" type="number">
+      Actual frames per second being captured
+    </ResponseField>
+    
+    <ResponseField name="avg_ocr_latency_ms" type="number">
+      Average OCR processing time in milliseconds
+    </ResponseField>
+    
+    <ResponseField name="avg_db_latency_ms" type="number">
+      Average database write time in milliseconds
+    </ResponseField>
+    
+    <ResponseField name="ocr_queue_depth" type="integer">
+      Number of frames waiting for OCR processing
+    </ResponseField>
+    
+    <ResponseField name="video_queue_depth" type="integer">
+      Number of frames waiting to be encoded
+    </ResponseField>
+    
+    <ResponseField name="time_to_first_frame_ms" type="number" optional>
+      Time taken to capture first frame after startup
+    </ResponseField>
+    
+    <ResponseField name="pipeline_stall_count" type="integer">
+      Number of times the pipeline stalled
+    </ResponseField>
+    
+    <ResponseField name="ocr_cache_hit_rate" type="number">
+      OCR cache hit rate (0.0 to 1.0)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="audio_pipeline" type="object" optional>
+  Detailed audio pipeline metrics
+  
+  <Expandable title="Audio Pipeline Metrics">
+    <ResponseField name="uptime_secs" type="number">
+      Pipeline uptime in seconds
+    </ResponseField>
+    
+    <ResponseField name="chunks_sent" type="integer">
+      Audio chunks sent for processing
+    </ResponseField>
+    
+    <ResponseField name="chunks_channel_full" type="integer">
+      Times the processing channel was full
+    </ResponseField>
+    
+    <ResponseField name="stream_timeouts" type="integer">
+      Number of stream timeout events
+    </ResponseField>
+    
+    <ResponseField name="vad_passed" type="integer">
+      Chunks with detected speech (Voice Activity Detection)
+    </ResponseField>
+    
+    <ResponseField name="vad_rejected" type="integer">
+      Chunks without speech
+    </ResponseField>
+    
+    <ResponseField name="vad_passthrough_rate" type="number">
+      Percentage passing VAD (0.0 to 1.0)
+    </ResponseField>
+    
+    <ResponseField name="avg_speech_ratio" type="number">
+      Average speech ratio in audio chunks
+    </ResponseField>
+    
+    <ResponseField name="transcriptions_completed" type="integer">
+      Successful transcriptions
+    </ResponseField>
+    
+    <ResponseField name="transcriptions_empty" type="integer">
+      Empty transcription results
+    </ResponseField>
+    
+    <ResponseField name="transcription_errors" type="integer">
+      Failed transcription attempts
+    </ResponseField>
+    
+    <ResponseField name="db_inserted" type="integer">
+      Transcriptions written to database
+    </ResponseField>
+    
+    <ResponseField name="total_words" type="integer">
+      Total words transcribed
+    </ResponseField>
+    
+    <ResponseField name="words_per_minute" type="number">
+      Average transcription rate
+    </ResponseField>
+    
+    <ResponseField name="transcription_mode" type="string" optional>
+      Current transcription mode
+    </ResponseField>
+    
+    <ResponseField name="transcription_paused" type="boolean" optional>
+      Whether transcription is paused
+    </ResponseField>
+    
+    <ResponseField name="segments_deferred" type="integer" optional>
+      Number of deferred segments
+    </ResponseField>
+    
+    <ResponseField name="segments_batch_processed" type="integer" optional>
+      Number of batch processed segments
+    </ResponseField>
+    
+    <ResponseField name="batch_paused_reason" type="string" optional>
+      Reason for batch processing pause
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Response
+
+### Healthy System
+
+```json
+{
+  "status": "healthy",
+  "status_code": 200,
+  "last_frame_timestamp": "2024-03-08T14:30:00Z",
+  "last_audio_timestamp": "2024-03-08T14:30:05Z",
+  "frame_status": "ok",
+  "audio_status": "ok",
+  "message": "All systems operational",
+  "monitors": ["Built-in Display", "External Monitor"],
+  "pipeline": {
+    "uptime_secs": 3600.5,
+    "frames_captured": 21600,
+    "frames_db_written": 21595,
+    "frames_dropped": 5,
+    "frame_drop_rate": 0.0002,
+    "capture_fps_actual": 6.0,
+    "avg_ocr_latency_ms": 45.3,
+    "avg_db_latency_ms": 12.1,
+    "ocr_queue_depth": 2,
+    "video_queue_depth": 1,
+    "time_to_first_frame_ms": 1250.5,
+    "pipeline_stall_count": 0,
+    "ocr_cache_hit_rate": 0.85
+  },
+  "audio_pipeline": {
+    "uptime_secs": 3600.5,
+    "chunks_sent": 1500,
+    "chunks_channel_full": 2,
+    "stream_timeouts": 0,
+    "vad_passed": 450,
+    "vad_rejected": 1050,
+    "vad_passthrough_rate": 0.3,
+    "avg_speech_ratio": 0.65,
+    "transcriptions_completed": 420,
+    "transcriptions_empty": 30,
+    "transcription_errors": 5,
+    "db_inserted": 415,
+    "total_words": 12500,
+    "words_per_minute": 208.33,
+    "transcription_mode": "streaming",
+    "transcription_paused": false
+  }
+}
+```
+
+### Degraded System
+
+```json
+{
+  "status": "degraded",
+  "status_code": 503,
+  "last_frame_timestamp": "2024-03-08T14:15:00Z",
+  "last_audio_timestamp": "2024-03-08T14:30:00Z",
+  "frame_status": "stale",
+  "audio_status": "ok",
+  "message": "Frame capture pipeline is stale",
+  "verbose_instructions": "No frames captured in the last 15 minutes. Check:\n1. Screen recording permissions\n2. Monitor connection\n3. System resources (CPU/Memory)\n4. Application logs",
+  "device_status_details": "Monitor 'Built-in Display' may be disconnected",
+  "monitors": [],
+  "pipeline": {
+    "uptime_secs": 3600.5,
+    "frames_captured": 15000,
+    "frames_dropped": 500,
+    "frame_drop_rate": 0.032,
+    "pipeline_stall_count": 15
+  }
+}
+```
+
+## Health Status Interpretation
+
+### Healthy
+
+- `status: "healthy"`
+- Both frame and audio pipelines operating normally
+- Recent timestamps (within expected intervals)
+- Low frame drop rate (< 1%)
+- No pipeline stalls
+
+### Degraded
+
+- `status: "degraded"`
+- One or more pipelines experiencing issues
+- Stale timestamps
+- High frame drop rate (> 5%)
+- Pipeline stalls or errors
+- Permission issues
+
+## Monitoring Best Practices
+
+<Tip>
+  **Regular Health Checks**:
+  - Poll `/health` every 30-60 seconds for monitoring
+  - Alert on `status: "degraded"`
+  - Track frame_drop_rate over time
+  - Monitor queue depths for bottlenecks
+  - Check transcription error rates
+  - Verify timestamps are recent
+</Tip>
+
+### Key Metrics to Monitor
+
+1. **Frame Drop Rate** - Should be < 1%
+   - High rates indicate performance issues
+   - Check CPU/GPU usage
+   - Reduce capture FPS if needed
+
+2. **OCR Latency** - Should be < 100ms
+   - High latency causes queue buildup
+   - Consider faster OCR engine
+   - Enable OCR caching
+
+3. **Queue Depths** - Should be < 10
+   - High depths indicate processing bottleneck
+   - May need to scale processing power
+
+4. **Transcription Errors** - Should be < 2%
+   - High rates indicate audio quality issues
+   - Check microphone configuration
+   - Reduce background noise
+
+5. **VAD Passthrough Rate** - Typically 20-40%
+   - Very low may indicate audio issues
+   - Very high may indicate noise
+
+## Troubleshooting
+
+### Stale Frame Status
+
+```bash
+# Check health
+curl "http://localhost:3030/health"
+
+# Check vision status
+curl "http://localhost:3030/vision/status"
+
+# List monitors
+curl "http://localhost:3030/vision/list"
+```
+
+**Common causes:**
+- Screen recording permission denied
+- No monitors detected
+- Pipeline crashed
+- System resources exhausted
+
+### High Frame Drop Rate
+
+```bash
+# Get detailed metrics
+curl "http://localhost:3030/vision/metrics"
+```
+
+**Solutions:**
+- Reduce capture FPS in settings
+- Close resource-intensive applications
+- Enable OCR caching
+- Upgrade hardware
+
+### Audio Pipeline Issues
+
+```bash
+# Check audio health
+curl "http://localhost:3030/audio/metrics"
+
+# List audio devices
+curl "http://localhost:3030/audio/list"
+```
+
+**Common causes:**
+- Microphone permission denied
+- Audio device disconnected
+- High transcription error rate
+- VAD sensitivity too high/low
+
+## Integration Example
+
+### TypeScript Monitoring
+
+```typescript
+interface HealthResponse {
+  status: 'healthy' | 'degraded';
+  frame_status: string;
+  audio_status: string;
+  pipeline?: {
+    frame_drop_rate: number;
+    ocr_queue_depth: number;
+  };
+  audio_pipeline?: {
+    transcription_errors: number;
+    vad_passthrough_rate: number;
+  };
+}
+
+async function checkHealth(): Promise<void> {
+  const response = await fetch('http://localhost:3030/health');
+  const health: HealthResponse = await response.json();
+  
+  if (health.status === 'degraded') {
+    console.error('Screenpipe is degraded:', health);
+    // Send alert
+  }
+  
+  // Check specific metrics
+  if (health.pipeline?.frame_drop_rate > 0.05) {
+    console.warn('High frame drop rate:', health.pipeline.frame_drop_rate);
+  }
+  
+  if (health.audio_pipeline?.transcription_errors > 10) {
+    console.warn('High transcription errors:', health.audio_pipeline.transcription_errors);
+  }
+  
+  // Log metrics for monitoring
+  logMetrics({
+    frame_drop_rate: health.pipeline?.frame_drop_rate,
+    ocr_queue: health.pipeline?.ocr_queue_depth,
+    transcription_errors: health.audio_pipeline?.transcription_errors,
+  });
+}
+
+// Poll every minute
+setInterval(checkHealth, 60000);
+```
+
+### Bash Monitoring Script
+
+```bash
+#!/bin/bash
+
+while true; do
+  health=$(curl -s "http://localhost:3030/health")
+  status=$(echo $health | jq -r '.status')
+  
+  if [ "$status" != "healthy" ]; then
+    echo "[$(date)] ALERT: Screenpipe is $status"
+    echo $health | jq '.'
+    
+    # Send notification
+    osascript -e 'display notification "Screenpipe is degraded" with title "Health Alert"'
+  fi
+  
+  sleep 60
+done
+```
+
+## WebSocket Health Monitoring
+
+For real-time health monitoring, use the WebSocket endpoint:
+
+```
+ws://localhost:3030/ws/health
+```
+
+Receives health updates pushed by the server in real-time.
+
+```javascript
+const ws = new WebSocket('ws://localhost:3030/ws/health');
+
+ws.onmessage = (event) => {
+  const health = JSON.parse(event.data);
+  console.log('Health update:', health);
+  
+  if (health.status === 'degraded') {
+    showAlert(health.message);
+  }
+};
+```
+
+## Next Steps
+
+- Query your data with the [search endpoint](/api/search)
+- Manage [audio devices](/api/audio) if audio_status is not ok
+- Check [vision status](/api/vision) if frame_status is not ok
+- Configure [pipes](/api/pipes) for automated monitoring alerts

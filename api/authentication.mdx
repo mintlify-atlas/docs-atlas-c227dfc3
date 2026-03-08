@@ -1,0 +1,125 @@
+---
+title: "Authentication"
+description: "Authentication and security for the Screenpipe API"
+---
+
+# Authentication
+
+## Local API Access
+
+The Screenpipe API runs locally on your machine at `http://localhost:3030` and does not require authentication by default.
+
+<Warning>
+  Since the API runs on localhost, it is only accessible from your local machine. This means:
+  - No API keys or tokens are required for local access
+  - The API is not exposed to the internet by default
+  - All data remains on your local machine
+</Warning>
+
+## Security Considerations
+
+### Local-Only Access
+
+The API is designed to run locally for maximum privacy and security:
+
+- All processing happens on your device
+- No data is sent to external servers (unless cloud sync is enabled)
+- The API binds to `localhost` by default
+
+### Port Configuration
+
+The default port is `3030`. If you need to change it, update your Screenpipe configuration.
+
+### Firewall Protection
+
+Ensure your firewall is configured to prevent external access to port 3030:
+
+```bash
+# Example: Block external access on macOS
+sudo pfctl -e
+```
+
+## Cloud Sync Authentication
+
+If you enable cloud sync, you'll need to authenticate with your cloud credentials:
+
+<ParamField path="token" type="string" required>
+  API token for cloud authentication
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  Password for encryption key derivation
+</ParamField>
+
+### Initialize Cloud Sync
+
+```bash
+curl -X POST http://localhost:3030/sync/init \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your-api-token",
+    "password": "your-encryption-password"
+  }'
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "is_new_user": false,
+  "machine_id": "abc-123-def-456"
+}
+```
+
+## Data Privacy
+
+### Local Storage
+
+- All captured data is stored locally in a SQLite database
+- Frame images and audio files are stored on your local filesystem
+- No data leaves your machine unless you explicitly enable cloud sync
+
+### Encryption
+
+When cloud sync is enabled:
+
+- All data is encrypted before being uploaded
+- Encryption keys are derived from your password
+- Screenpipe uses end-to-end encryption
+
+## Best Practices
+
+<Warning>
+  **Important Security Tips**:
+  - Keep Screenpipe updated to the latest version
+  - Use a strong password if enabling cloud sync
+  - Be cautious about exposing the API port externally
+  - Regularly review your stored data and retention policies
+</Warning>
+
+### Network Security
+
+1. **Never expose port 3030 to the internet** without proper authentication
+2. Use a reverse proxy with authentication if remote access is needed
+3. Consider using a VPN for remote access instead of exposing the API
+
+### Data Protection
+
+1. Regularly backup your local Screenpipe database
+2. Use disk encryption on your device
+3. Set appropriate file permissions on the Screenpipe data directory
+
+## API Rate Limits
+
+There are no rate limits for local API access. However, be mindful of:
+
+- Database query performance with large datasets
+- Memory usage when requesting large result sets
+- Disk I/O when accessing many frames simultaneously
+
+## Next Steps
+
+- Start querying your data with the [search endpoint](/api/search)
+- Monitor system health with the [health endpoint](/api/health)
+- Explore [frames retrieval](/api/frames) for screenshots

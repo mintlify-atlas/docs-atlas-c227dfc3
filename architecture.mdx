@@ -1,0 +1,583 @@
+---
+title: Architecture
+description: Technical architecture overview of screenpipe's event-driven capture, audio pipeline, storage, and API
+---
+
+## Overview
+
+screenpipe is built as a local-first, event-driven data capture system. All data is stored locally in SQLite, with an optional REST API for programmatic access. The core architecture consists of four main components:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    screenpipe Architecture                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────┐  ┌──────────────────┐               │
+│  │ Event Listener   │  │  Audio Pipeline  │               │
+│  │ (OS Events)      │  │  (Whisper)       │               │
+│  └────────┬─────────┘  └────────┬─────────┘               │
+│           │                      │                          │
+│           ▼                      ▼                          │
+│  ┌──────────────────────────────────────┐                 │
+│  │     Paired Capture Engine             │                 │
+│  │  Screenshot + Accessibility/OCR       │                 │
+│  └─────────────────┬────────────────────┘                 │
+│                    │                                        │
+│                    ▼                                        │
+│  ┌──────────────────────────────────────┐                 │
+│  │     Local SQLite + JPEG Snapshots    │                 │
+│  └─────────────────┬────────────────────┘                 │
+│                    │                                        │
+│                    ▼                                        │
+│  ┌──────────────────────────────────────┐                 │
+│  │     REST API (localhost:3030)        │                 │
+│  │  Search, Timeline, Frames, Audio      │                 │
+│  └──────────────────────────────────────┘                 │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Event-Driven Capture
+
+Unlike traditional screen recorders that poll at a fixed frame rate, screenpipe uses **event-driven capture**. It only captures a screenshot when something meaningful happens.
+
+### Capture Triggers
+
+screenpipe listens for these OS-level events:
+
+| Trigger | Debounce | Description |
+|---------|----------|-------------|
+| **App switch** | 300ms | User changed applications (highest-value event) |
+| **Window focus change** | 300ms | New tab, document, or conversation opened |
+| **Mouse click** | 200ms | User interacted—screen likely changed |
+| **Typing pause** | 500ms after last key | Captures the result of typing, not every character |
+| **Scroll stop** | 400ms after last scroll | New content scrolled into view |
+| **Clipboard copy** | 200ms | User grabbed something—capture context |
+| **Idle fallback** | Every 5s | Catches passive changes (notifications, incoming messages) |
+
+<Info>
+  Each trigger has a **debounce period** to prevent capture storms. For example, rapid clicking won't create 20 captures—it'll create at most 5 (200ms minimum interval).
+</Info>
+
+### Capture Flow
+
+When an event triggers a capture:
+
+<Steps>
+  <Step title="Event detected">
+    The OS event listener (CGEventTap on macOS, SetWindowsHookEx on Windows) detects a meaningful event like an app switch or click.
+  </Step>
+
+  <Step title="Debounce and dedup">
+    The event is debounced (e.g., 200-500ms depending on type) and deduplicated per monitor to prevent storms.
+  </Step>
+
+  <Step title="Paired capture">
+    A **paired capture** runs:
+    1. **Screenshot**: Captures the monitor image (~5ms)
+    2. **Accessibility tree walk**: Extracts structured text from the focused window (~10-50ms on macOS, 200-500ms on Windows)
+    3. **OCR fallback** (if accessibility is empty): Runs OCR on the screenshot (~100-500ms, rare)
+  </Step>
+
+  <Step title="Write to disk">
+    - Screenshot is encoded as JPEG (~80 KB per frame at quality 80) and written to `~/.screenpipe/data/YYYY-MM-DD/`
+    - Metadata (text, app name, window title, trigger type) is inserted into SQLite
+  </Step>
+</Steps>
+
+<CodeGroup>
+```rust Paired Capture (Simplified)
+// crates/screenpipe-engine/src/paired_capture.rs
+
+pub async fn paired_capture(
+    monitor_id: u32,
+    trigger: CaptureTrigger,
+) -> Result<PairedCaptureResult> {
+    // 1. Take screenshot
+    let image = capture_monitor_image(monitor_id).await?;
+    
+    // 2. Get focused window
+    let windows = capture_windows().await?;
+    
+    // 3. Try accessibility first
+    let ax_result = walk_focused_window(&windows[0])
+        .timeout(Duration::from_millis(200))
+        .await?;
+    
+    // 4. Fallback to OCR if accessibility is empty
+    let (text, text_source) = if ax_result.text_content.is_empty() {
+        let ocr_text = process_ocr_task(&image).await?;
+        (ocr_text, "ocr")
+    } else {
+        (ax_result.text_content, "accessibility")
+    };
+    
+    // 5. Encode and write JPEG
+    let jpeg_path = write_snapshot(&image, monitor_id).await?;
+    
+    // 6. Insert frame + text into DB
+    db.insert_snapshot_frame(jpeg_path, text, trigger, text_source).await?;
+    
+    Ok(PairedCaptureResult { ... })
+}
+```
+</CodeGroup>
+
+### Why Event-Driven?
+
+Compared to continuous recording at 0.5-1 FPS:
+
+| Metric | Continuous (1 FPS) | Event-Driven |
+|--------|-------------------|-------------|
+| **CPU usage** (static screen) | 3-5% | < 0.5% |
+| **CPU usage** (active use) | 8-15% | < 5% |
+| **Frames captured** (8 hours) | 28,800 | ~3,840 |
+| **Storage** (8 hours) | 800 MB - 1.6 GB | ~300 MB |
+| **Capture latency** | 1-5 seconds | < 500ms |
+
+<Note>
+  Event-driven capture is the default and only mode. There is no FPS slider—capture happens when events occur.
+</Note>
+
+## Text Extraction
+
+screenpipe extracts text from your screen using two methods:
+
+### 1. Accessibility Tree (Primary)
+
+The **accessibility tree** is the structured representation of UI that screen readers use. It contains:
+
+- Button labels
+- Text field content
+- Menu items
+- Window titles
+- Structured roles (button, text, list, etc.)
+
+Advantages:
+- **Fast**: 10-50ms per capture (macOS), 200-500ms (Windows)
+- **Accurate**: Text is already parsed by the OS
+- **Structured**: Knows what's a button vs. body text
+
+Supported apps:
+- Native OS apps (Finder, System Settings, etc.)
+- Browsers (Chrome, Safari, Firefox)
+- Electron apps (VS Code, Slack, Discord)
+- Most modern apps with accessibility support
+
+<CodeGroup>
+```rust Accessibility Tree Walk (macOS)
+// crates/screenpipe-screen/src/apple.rs
+
+pub async fn walk_focused_window(window: &Window) -> Result<AccessibilityResult> {
+    let ax_element = AXUIElementCreateApplication(window.pid);
+    let mut text_content = String::new();
+    
+    // Walk the accessibility tree with 200ms timeout
+    walk_tree_recursive(ax_element, &mut text_content, 0, 200)?;
+    
+    Ok(AccessibilityResult {
+        text_content,
+        window_title: window.title.clone(),
+        app_name: window.app_name.clone(),
+    })
+}
+```
+</CodeGroup>
+
+### 2. OCR (Fallback)
+
+When accessibility data is unavailable or empty, screenpipe falls back to **Optical Character Recognition (OCR)**:
+
+- **macOS**: Apple Vision framework (fast, accurate)
+- **Windows**: Windows native OCR
+- **Linux**: Tesseract
+
+OCR is used for:
+- Image-heavy apps (Figma, Photoshop)
+- PDF viewers rendering as canvas
+- Video players showing text
+- Games and remote desktop sessions
+- Apps with broken/missing accessibility support
+
+<Warning>
+  OCR is ~10-50x slower than accessibility (100-500ms vs 10-50ms). screenpipe only uses OCR when accessibility returns no text.
+</Warning>
+
+### Text Storage
+
+Extracted text is stored in two places:
+
+1. **`frames` table**: The `accessibility_text` or `ocr_text` column stores the text directly on the frame row
+2. **Full-text search index**: SQLite FTS5 index for fast keyword search
+
+This ensures that when you search for a keyword, the returned screenshot is **always** from the same moment as the text—no desync.
+
+## Audio Pipeline
+
+screenpipe captures and transcribes audio in real-time:
+
+<Steps>
+  <Step title="Audio capture">
+    - **System audio**: What you hear (Zoom, Spotify, YouTube)
+    - **Microphone**: What you say
+    
+    Audio is captured in 30-second chunks using native OS APIs (Core Audio on macOS, WASAPI on Windows, PipeWire on Linux).
+  </Step>
+
+  <Step title="Speech-to-text">
+    Each 30-second chunk is transcribed using **OpenAI Whisper** (running locally):
+    
+    - **Model**: `base` or `small` (configurable)
+    - **Speed**: ~2-5x real-time (30s audio transcribed in 6-15s)
+    - **Languages**: 50+ languages supported
+  </Step>
+
+  <Step title="Speaker diarization">
+    Whisper identifies different speakers in the audio:
+    - Labels speakers as Speaker 1, Speaker 2, etc.
+    - Works best with clear audio and distinct voices
+  </Step>
+
+  <Step title="Storage">
+    - **Audio transcription**: Stored in `audio_transcriptions` table
+    - **Original audio** (optional): Can be stored as MP3 for playback
+  </Step>
+</Steps>
+
+<CodeGroup>
+```rust Audio Transcription (Simplified)
+// crates/screenpipe-audio/src/lib.rs
+
+pub async fn transcribe_audio_chunk(
+    audio_chunk: &[f32],
+    device: &str,
+) -> Result<Transcription> {
+    // 1. Preprocess audio (normalize, denoise)
+    let processed = preprocess_audio(audio_chunk)?;
+    
+    // 2. Run Whisper
+    let whisper_output = whisper_model.transcribe(processed).await?;
+    
+    // 3. Parse speaker diarization
+    let segments = parse_speaker_segments(&whisper_output)?;
+    
+    // 4. Insert into DB
+    db.insert_audio_transcription(device, segments).await?;
+    
+    Ok(Transcription { segments })
+}
+```
+</CodeGroup>
+
+<Info>
+  Audio transcription is **optional**. You can disable it in settings to save CPU and storage.
+</Info>
+
+## Storage Layer
+
+All data is stored **locally** in two places:
+
+### 1. SQLite Database
+
+Location: `~/.screenpipe/db.sqlite`
+
+Key tables:
+
+| Table | Purpose |
+|-------|--------|
+| **`frames`** | Screenshot metadata (timestamp, app, window, trigger, accessibility text) |
+| **`ocr_text`** | OCR results (when accessibility fallback is used) |
+| **`audio_transcriptions`** | Audio transcription segments with speaker labels |
+| **`ui_events`** | User input events (clicks, keystrokes, clipboard) |
+| **`meetings`** | Detected meetings with duration and attendees |
+
+<CodeGroup>
+```sql Frames Table Schema
+CREATE TABLE frames (
+    id INTEGER PRIMARY KEY,
+    timestamp INTEGER NOT NULL,
+    device_name TEXT NOT NULL,
+    app_name TEXT,
+    window_name TEXT,
+    snapshot_path TEXT,              -- Path to JPEG file
+    accessibility_text TEXT,          -- Text from accessibility tree
+    capture_trigger TEXT,             -- 'app_switch', 'click', 'idle', etc.
+    text_source TEXT DEFAULT 'ocr',  -- 'accessibility' or 'ocr'
+    video_chunk_id INTEGER,           -- Legacy: for old video-based frames
+    offset_index INTEGER              -- Legacy: frame offset in video
+);
+
+CREATE INDEX idx_frames_ts_device ON frames(timestamp, device_name);
+CREATE VIRTUAL TABLE accessibility_text_fts USING fts5(content=frames, accessibility_text);
+```
+</CodeGroup>
+
+### 2. JPEG Snapshots
+
+Location: `~/.screenpipe/data/YYYY-MM-DD/`
+
+Each capture writes a JPEG directly to disk:
+
+```
+~/.screenpipe/data/
+├── 2026-03-08/
+│   ├── 1709884800000_m0.jpg  # Timestamp + monitor ID
+│   ├── 1709884803000_m0.jpg
+│   ├── 1709884805000_m1.jpg  # Monitor 1
+│   └── ...
+└── 2026-03-09/
+    └── ...
+```
+
+- **Quality**: JPEG quality 80 (configurable)
+- **Size**: ~80 KB per frame (1080p)
+- **Retention**: Configurable auto-delete (e.g., delete frames older than 30 days)
+
+<Note>
+  Older versions of screenpipe stored frames in H.265 video chunks. New captures use JPEG snapshots, but old video-based frames are still readable via FFmpeg extraction.
+</Note>
+
+## REST API
+
+screenpipe exposes a **local REST API** on `localhost:3030` for programmatic access:
+
+### Core Endpoints
+
+<CodeGroup>
+```bash Search Content
+# Search all content (OCR + audio + accessibility)
+GET /search?q=meeting+notes&content_type=all&limit=10
+
+# Search only audio transcriptions
+GET /search?q=budget+discussion&content_type=audio&limit=10
+
+# Search by time range
+GET /search?start_time=2026-03-08T09:00:00Z&end_time=2026-03-08T17:00:00Z
+
+# Filter by app
+GET /search?q=project&app_name=Slack
+```
+
+```bash Get Frames
+# Get frames in time range
+GET /frames?start_time=2026-03-08T09:00:00Z&end_time=2026-03-08T10:00:00Z&limit=50
+
+# Get frame image
+GET /frames/:id/image
+```
+
+```bash Get Audio
+# Get audio transcriptions
+GET /audio?start_time=2026-03-08T09:00:00Z&limit=20
+
+# Filter by speaker
+GET /audio?speaker=Speaker%201
+```
+
+```bash Health Check
+GET /health
+# Returns: {"status": "ok", "version": "1.x.x"}
+```
+</CodeGroup>
+
+### JavaScript SDK
+
+screenpipe provides a TypeScript SDK for easy API access:
+
+<CodeGroup>
+```typescript @screenpipe/js
+import { ScreenpipeClient } from "@screenpipe/js";
+
+const client = new ScreenpipeClient();
+
+// Search last 5 minutes
+const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+const results = await client.search({
+  startTime: fiveMinutesAgo,
+  limit: 10,
+  contentType: "all", // "ocr", "audio", "input", "accessibility", "all"
+});
+
+console.log(`Found ${results.pagination.total} items`);
+
+for (const item of results.data) {
+  console.log(`Type: ${item.type}`);
+  console.log(`Timestamp: ${item.content.timestamp}`);
+  
+  if (item.type === "OCR") {
+    console.log(`Text: ${item.content.text}`);
+  } else if (item.type === "Audio") {
+    console.log(`Transcript: ${item.content.transcription}`);
+  }
+}
+```
+</CodeGroup>
+
+See the [API Reference](/api/introduction) for complete documentation.
+
+## Plugin System (Pipes)
+
+Pipes are **scheduled AI agents** defined as markdown files. Each pipe runs on a schedule and can:
+
+- Query screenpipe data via the API
+- Call external APIs
+- Write files
+- Send notifications
+
+### Pipe Structure
+
+A pipe is a `pipe.md` file with YAML frontmatter:
+
+<CodeGroup>
+```markdown Example: Obsidian Sync Pipe
+---
+name: obsidian-sync
+schedule: "0 */2 * * *"  # Every 2 hours
+allow-apps: ["Chrome", "Slack", "VS Code"]
+deny-windows: ["*password*", "*credit card*"]
+allow-content-types: ["ocr", "accessibility"]
+time-range: "09:00-18:00"
+days: "Mon,Tue,Wed,Thu,Fri"
+---
+
+# Obsidian Sync Pipe
+
+You are an AI assistant that syncs screen activity to Obsidian.
+
+## Task
+
+1. Query screenpipe for activity in the last 2 hours
+2. Filter for work-related apps (Chrome, Slack, VS Code)
+3. Extract key events (meetings, code commits, Slack messages)
+4. Write a daily log to `~/Obsidian/Daily Notes/YYYY-MM-DD.md`
+
+## API Access
+
+You have access to the screenpipe API at `http://localhost:3030`.
+
+Example query:
+```bash
+curl "http://localhost:3030/search?content_type=all&limit=50"
+```
+
+## Output Format
+
+Write the daily log in markdown format:
+
+```markdown
+## 2026-03-08
+
+### Meetings
+- 10:00 AM: Standup with team
+
+### Code
+- Fixed bug in authentication flow
+- Reviewed PR #123
+
+### Communication
+- Slack: Discussed database migration with @john
+```
+</CodeGroup>
+
+### Data Permissions
+
+Each pipe supports **deterministic access control** via YAML frontmatter:
+
+| Field | Description |
+|-------|-------------|
+| `allow-apps` | Whitelist of apps the pipe can access (glob patterns) |
+| `deny-apps` | Blacklist of apps |
+| `deny-windows` | Blacklist of window titles (e.g., `*password*`) |
+| `allow-content-types` | Restrict to `ocr`, `audio`, `input`, or `accessibility` |
+| `time-range` | Time range the pipe can access (e.g., `09:00-18:00`) |
+| `days` | Days of the week (e.g., `Mon,Tue,Wed,Thu,Fri`) |
+| `allow-raw-sql` | Allow raw SQL queries (default: `false`) |
+| `allow-frames` | Allow access to raw frame images (default: `false`) |
+
+<Warning>
+  Permissions are **enforced at three layers**: skill gating (AI never learns denied endpoints), agent interception (blocked before execution), and server middleware (per-pipe cryptographic tokens). Not prompt-based. Deterministic.
+</Warning>
+
+### Built-in Pipes
+
+- **obsidian-sync**: Sync activity to Obsidian vault
+- **reminders**: Scan activity for TODOs and create Apple Reminders
+- **meeting-summary**: Auto-generate meeting summaries
+- **time-breakdown**: Generate time tracking reports by app
+- **idea-tracker**: Surface startup ideas from browsing + market trends
+
+See the [Pipes documentation](/pipes/overview) for more details.
+
+## Platform-Specific Implementation
+
+screenpipe is cross-platform but uses platform-specific APIs for optimal performance:
+
+| Component | macOS | Windows | Linux |
+|-----------|-------|---------|-------|
+| **Event detection** | CGEventTap | SetWindowsHookEx | X11/Wayland hooks |
+| **Screenshot** | ScreenCaptureKit | DXGI/GDI | X11/PipeWire |
+| **Accessibility** | AX API | UI Automation | AT-SPI |
+| **Audio capture** | Core Audio | WASAPI | PipeWire |
+| **OCR** | Apple Vision | Windows OCR | Tesseract |
+
+<Info>
+  ~90% of screenpipe's code is platform-agnostic Rust. Only event detection and capture APIs are platform-specific.
+</Info>
+
+## Security & Privacy
+
+### Local-First Architecture
+
+- **All data stays on your device** by default
+- No external servers or cloud dependencies
+- SQLite database is not encrypted by default (stored in your home directory with OS-level permissions)
+- Optional encrypted cloud sync uses zero-knowledge encryption
+
+### Network Isolation
+
+- API only listens on `localhost:3030` (not exposed to the network)
+- No telemetry or analytics sent to external servers
+- All AI models can run locally via Ollama
+
+### Data Access Control
+
+- Per-pipe permissions enforced at OS level
+- Ignored windows list (skip sensitive apps like password managers)
+- Optional data retention limits (auto-delete old frames)
+
+<Note>
+  screenpipe is open source (MIT license). You can audit the entire codebase at [github.com/screenpipe/screenpipe](https://github.com/screenpipe/screenpipe).
+</Note>
+
+## Performance Characteristics
+
+Typical resource usage on a modern machine (M1 MacBook Pro, 16 GB RAM):
+
+| Scenario | CPU | RAM | Disk I/O |
+|----------|-----|-----|----------|
+| **Idle** (static screen) | < 0.5% | 500 MB | Minimal |
+| **Active use** (browsing, coding) | 3-7% | 1-2 GB | ~1 MB/s |
+| **Audio transcription** | +5-10% | +500 MB | +500 KB/s |
+| **Initial indexing** | 15-25% | 2-3 GB | 5-10 MB/s |
+
+<Info>
+  Performance degrades gracefully on lower-end hardware. Event-driven capture automatically reduces frequency if CPU usage exceeds thresholds.
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Explore all API endpoints
+  </Card>
+  <Card title="Pipes" icon="pipe" href="/pipes">
+    Build AI agent plugins
+  </Card>
+  <Card title="MCP Server" icon="plug" href="/mcp">
+    Connect AI assistants
+  </Card>
+  <Card title="Contributing" icon="github" href="https://github.com/screenpipe/screenpipe/blob/main/CONTRIBUTING.md">
+    Contribute to screenpipe
+  </Card>
+</CardGroup>

@@ -1,0 +1,223 @@
+---
+title: Pipes Overview
+description: What pipes are, how they work, and what you can build with them
+---
+
+Pipes are scheduled AI agents defined as simple markdown files. Each pipe is a `pipe.md` with a prompt and schedule — screenpipe runs an AI coding agent (like pi or claude-code) that queries your screen data, calls APIs, writes files, and takes actions.
+
+## What are pipes?
+
+Think of pipes as autonomous AI workflows that run on a schedule. Instead of writing code, you write a markdown file with:
+
+- **YAML frontmatter**: Schedule, AI model, and data permissions
+- **Prompt body**: Instructions for what the AI should do
+
+screenpipe takes care of:
+- Running the AI agent at the scheduled time
+- Passing your screen/audio data context
+- Managing execution (logs, timeouts, retries)
+- Enforcing data permissions
+
+## How pipes work
+
+```
+┌─────────────────────────────────────────────────────┐
+│  1. Schedule triggers (cron or interval)            │
+└─────────────┬───────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────┐
+│  2. Pipe manager loads pipe.md config + prompt      │
+└─────────────┬───────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────┐
+│  3. Spawn AI agent (pi) with:                       │
+│     • Rendered prompt                               │
+│     • API access (http://localhost:3030)            │
+│     • Data permissions (YAML frontmatter)           │
+└─────────────┬───────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────┐
+│  4. Agent queries screenpipe API:                   │
+│     • Search OCR text                               │
+│     • Search audio transcriptions                   │
+│     • Get input events (typing, clicks, clipboard)  │
+│     • Access accessibility tree                     │
+└─────────────┬───────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────┐
+│  5. Agent takes actions:                            │
+│     • Call external APIs                            │
+│     • Write files to ./output/                      │
+│     • Run shell commands                            │
+│     • Send notifications                            │
+└─────────────┬───────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────┐
+│  6. Execution logged to ~/.screenpipe/pipes/        │
+│     {name}/logs/{timestamp}.json                    │
+└─────────────────────────────────────────────────────┘
+```
+
+## Use cases
+
+### Productivity automation
+- **Daily logs**: Automatically sync activity to Obsidian or Notion
+- **Time tracking**: Categorize work by project and export to CSV
+- **Meeting summaries**: Transcribe meetings and create action items
+- **Task extraction**: Find todos from conversations and create reminders
+
+### Personal insights
+- **Focus analysis**: Track deep work sessions vs context switching
+- **Habit tracking**: Monitor which apps you use and when
+- **Learning journal**: Capture articles read, videos watched, code written
+- **Mood tracking**: Correlate screen activity with subjective well-being
+
+### Developer workflows
+- **Standup automation**: Generate standup updates from yesterday's commits and PRs
+- **Documentation sync**: Update docs when you change code
+- **Bug tracker**: Surface error messages from terminals and create tickets
+- **Code review prep**: Summarize recent changes for PR descriptions
+
+### Research & discovery
+- **Idea tracker**: Surface startup ideas from browsing + market trends
+- **Reading digest**: Summarize articles and papers you've read
+- **Competitive intel**: Track competitors' product updates and blog posts
+- **Learning paths**: Recommend resources based on what you're researching
+
+### Team & enterprise
+- **Shared standups**: Auto-generate team updates from aggregated activity
+- **Compliance audits**: Log what data was accessed and by whom
+- **Onboarding playbooks**: Capture how experienced employees work
+- **Security monitoring**: Alert on sensitive window titles or unusual patterns
+
+## Built-in pipes
+
+screenpipe includes several example pipes in `~/.screenpipe/pipes/`:
+
+<CardGroup cols={2}>
+  <Card title="Obsidian Sync" icon="book">
+    Automatically sync screen activity to Obsidian vault as daily logs with timeline, action items, and deep links
+  </Card>
+  <Card title="Reminders" icon="bell">
+    Scan activity for todos and create Apple Reminders (macOS)
+  </Card>
+  <Card title="Idea Tracker" icon="lightbulb">
+    Surface startup ideas from your browsing combined with market trends
+  </Card>
+  <Card title="Meeting Summary" icon="users">
+    Transcribe meetings and generate summaries with action items
+  </Card>
+  <Card title="Time Breakdown" icon="clock">
+    Categorize work by project and app usage
+  </Card>
+  <Card title="Morning Brief" icon="sunrise">
+    Daily summary of yesterday's activity and today's agenda
+  </Card>
+</CardGroup>
+
+## Pipe lifecycle
+
+### Queued
+Pipe is scheduled and waiting for execution. A global semaphore (default: 1 concurrent pipe) prevents resource contention.
+
+### Running
+AI agent process is spawned. PID tracked, stdout/stderr captured, timeout enforced (default: 5 minutes).
+
+### Completed
+Agent finished successfully. Output written to `./output/`, logs saved.
+
+### Failed
+Agent returned non-zero exit code, crashed, or timed out. Error captured in logs.
+
+### Cancelled
+User manually stopped execution via UI or API.
+
+## Data access
+
+Pipes access screenpipe data via the localhost REST API:
+
+```
+GET http://localhost:3030/search?content_type=ocr&start_time=<ISO8601>&end_time=<ISO8601>&limit=100
+```
+
+Available content types:
+- `ocr` — Text extracted from screen (accessibility tree + OCR fallback)
+- `audio` — Speech transcriptions from system audio and microphone
+- `input` — Typing, clicks, clipboard, app switches
+- `accessibility` — UI elements (buttons, labels, menus)
+- `all` — Combined results from all sources
+
+[See full API reference](API documentation (see /api/introduction))
+
+## Data permissions
+
+Pipes support fine-grained data access control via YAML frontmatter. Admins can restrict:
+
+- **Apps & windows**: Only allow data from specific apps or window titles
+- **Content types**: Restrict to OCR only, audio only, etc.
+- **Time & day ranges**: Only access data from work hours
+- **Endpoints**: Block raw SQL queries or frame/screenshot access
+
+Enforced at **three layers** — not prompt-based. Even a compromised AI agent cannot access denied data.
+
+[Learn more about data permissions →](/pipes/data-permissions)
+
+## Performance
+
+Pipes are designed to be resource-efficient:
+
+- **Event-driven execution**: Only run when scheduled, not continuously
+- **Serialized by default**: One pipe at a time (semaphore=1) prevents CPU spikes
+- **Automatic timeout**: 5-minute default prevents hung processes
+- **Log rotation**: Old execution logs pruned automatically
+- **Incremental queries**: Query API in time chunks to avoid loading entire DB
+
+Typical overhead:
+- **Idle**: 0% CPU (scheduler checks every 30s)
+- **Running**: 10-30% CPU depending on AI model and API calls
+- **Storage**: ~1-5 MB per execution (logs + output)
+
+## Privacy & security
+
+### Local by default
+All pipes run locally on your device. No data sent to external servers unless the pipe explicitly makes external API calls (e.g., web search).
+
+### Data permissions
+YAML frontmatter controls what data each pipe can access. Three-layer enforcement (skill gating, agent interception, server middleware) prevents unauthorized access.
+
+### Audit logs
+Every pipe execution is logged with:
+- Timestamp (queued, started, finished)
+- AI model and provider used
+- Stdout/stderr output
+- Exit code and error messages
+- Which API endpoints were called
+
+### Sandboxing
+Pipes run in a process-isolated environment:
+- Working directory: `~/.screenpipe/pipes/{pipe_name}/`
+- Output directory: `./output/` (write-only)
+- No access to other pipes' data
+- Environment variables controlled
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Pipes" icon="code" href="/pipes/creating-pipes">
+    Step-by-step guide to creating your first pipe
+  </Card>
+  <Card title="Data Permissions" icon="shield" href="/pipes/data-permissions">
+    Configure what data your pipes can access
+  </Card>
+  <Card title="Examples" icon="book-open" href="/pipes/examples">
+    Real pipe examples you can copy and customize
+  </Card>
+  <Card title="API Reference" icon="terminal" href="API documentation (see /api/introduction)">
+    Complete screenpipe API documentation
+  </Card>
+</CardGroup>

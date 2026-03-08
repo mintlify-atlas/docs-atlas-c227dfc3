@@ -1,0 +1,405 @@
+---
+title: "Frames"
+description: "Retrieve and manage screen capture frames"
+---
+
+# Frames
+
+Frames are individual screenshots captured by Screenpipe. The frames endpoints allow you to retrieve frame images, OCR data, metadata, and navigate through frames.
+
+## Get Frame Image
+
+Retrieve the JPEG image for a specific frame.
+
+### Endpoint
+
+```
+GET /frames/{frame_id}
+```
+
+### Path Parameters
+
+<ParamField path="frame_id" type="integer" required>
+  ID of the frame to retrieve
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="redact_pii" type="boolean" default="false">
+  If true, blur/redact any detected PII (credit cards, SSNs, emails) in the frame.
+</ParamField>
+
+### Example
+
+```bash
+curl "http://localhost:3030/frames/12345" --output frame.jpg
+```
+
+### With PII Redaction
+
+```bash
+curl "http://localhost:3030/frames/12345?redact_pii=true" --output frame_redacted.jpg
+```
+
+### Response
+
+Returns the frame image as JPEG binary data.
+
+**Content-Type**: `image/jpeg`
+
+### Error Responses
+
+<ResponseField name="404" type="Not Found">
+  Frame not found in database
+</ResponseField>
+
+<ResponseField name="408" type="Request Timeout">
+  Request timed out while retrieving frame
+</ResponseField>
+
+<ResponseField name="410" type="Gone">
+  Frame unavailable - video file corrupted or missing
+</ResponseField>
+
+---
+
+## Get Frame OCR Data
+
+Retrieve OCR text positions with bounding boxes for a frame. Useful for creating text selection overlays on screenshots.
+
+### Endpoint
+
+```
+GET /frames/{frame_id}/ocr
+```
+
+### Path Parameters
+
+<ParamField path="frame_id" type="integer" required>
+  ID of the frame
+</ParamField>
+
+### Example
+
+```bash
+curl "http://localhost:3030/frames/12345/ocr"
+```
+
+### Response
+
+<ResponseField name="frame_id" type="integer">
+  The frame ID
+</ResponseField>
+
+<ResponseField name="text_positions" type="array">
+  Array of text positions with bounding boxes
+  
+  <Expandable title="Text Position Object">
+    <ResponseField name="text" type="string">
+      The extracted text
+    </ResponseField>
+    
+    <ResponseField name="x" type="number">
+      X coordinate of top-left corner
+    </ResponseField>
+    
+    <ResponseField name="y" type="number">
+      Y coordinate of top-left corner
+    </ResponseField>
+    
+    <ResponseField name="width" type="number">
+      Width of bounding box
+    </ResponseField>
+    
+    <ResponseField name="height" type="number">
+      Height of bounding box
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "frame_id": 12345,
+  "text_positions": [
+    {
+      "text": "Hello World",
+      "x": 100.5,
+      "y": 50.2,
+      "width": 120.0,
+      "height": 20.0
+    },
+    {
+      "text": "Welcome to Screenpipe",
+      "x": 100.5,
+      "y": 80.3,
+      "width": 180.0,
+      "height": 20.0
+    }
+  ]
+}
+```
+
+---
+
+## Get Frame Metadata
+
+Get frame metadata including timestamp for deep link navigation.
+
+### Endpoint
+
+```
+GET /frames/{frame_id}/metadata
+```
+
+### Path Parameters
+
+<ParamField path="frame_id" type="integer" required>
+  ID of the frame
+</ParamField>
+
+### Example
+
+```bash
+curl "http://localhost:3030/frames/12345/metadata"
+```
+
+### Response
+
+<ResponseField name="frame_id" type="integer">
+  The frame ID
+</ResponseField>
+
+<ResponseField name="timestamp" type="string" format="date-time">
+  When the frame was captured
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "frame_id": 12345,
+  "timestamp": "2024-03-08T14:30:00Z"
+}
+```
+
+### Error Responses
+
+<ResponseField name="404" type="Not Found">
+  Frame not found
+</ResponseField>
+
+---
+
+## Find Next Valid Frame
+
+Find the next frame with a valid video file on disk. Allows the frontend to skip directly to a valid frame instead of trying each one when frames fail to load.
+
+### Endpoint
+
+```
+GET /frames/next-valid
+```
+
+### Query Parameters
+
+<ParamField query="frame_id" type="integer" required>
+  Current frame_id that failed to load
+</ParamField>
+
+<ParamField query="direction" type="string" default="forward">
+  Search direction: `forward` or `backward`
+</ParamField>
+
+<ParamField query="limit" type="integer" default="50">
+  Maximum number of frames to check (default: 50)
+</ParamField>
+
+### Example
+
+```bash
+curl "http://localhost:3030/frames/next-valid?frame_id=12345&direction=forward&limit=50"
+```
+
+### Response
+
+<ResponseField name="frame_id" type="integer">
+  ID of the next valid frame found
+</ResponseField>
+
+<ResponseField name="timestamp" type="string" format="date-time">
+  Timestamp of the valid frame
+</ResponseField>
+
+<ResponseField name="skipped_count" type="integer">
+  Number of frames skipped to find this valid frame
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "frame_id": 12350,
+  "timestamp": "2024-03-08T14:31:00Z",
+  "skipped_count": 5
+}
+```
+
+### Error Responses
+
+<ResponseField name="404" type="Not Found">
+  No valid frames found within the search limit
+</ResponseField>
+
+---
+
+## Use Cases
+
+### Display Frame with Text Overlay
+
+1. Retrieve the frame image
+2. Get OCR data with bounding boxes
+3. Render image with selectable text overlay
+
+```bash
+# Get frame image
+curl "http://localhost:3030/frames/12345" --output frame.jpg
+
+# Get OCR positions
+curl "http://localhost:3030/frames/12345/ocr"
+```
+
+### Timeline Navigation
+
+1. Get frame metadata for timestamp
+2. Use timestamp for timeline scrubbing
+3. If frame fails to load, find next valid frame
+
+```bash
+# Get metadata
+curl "http://localhost:3030/frames/12345/metadata"
+
+# If frame fails, find next
+curl "http://localhost:3030/frames/next-valid?frame_id=12345&direction=forward"
+```
+
+### Privacy-Aware Display
+
+Automatically redact sensitive information:
+
+```bash
+curl "http://localhost:3030/frames/12345?redact_pii=true" --output safe_frame.jpg
+```
+
+---
+
+## Frame Management Tips
+
+<Tip>
+  **Performance Best Practices**:
+  - Cache frame images on the client side
+  - Use thumbnail sizes when displaying multiple frames
+  - Request OCR data separately only when needed
+  - Use `next-valid` endpoint for robust frame navigation
+  - Enable PII redaction when displaying frames to users
+</Tip>
+
+<Warning>
+  **Frame Availability**: Frames may become unavailable if:
+  - Video file has been deleted or moved
+  - Storage corruption occurred
+  - Frame was recorded but video encoding failed
+  
+  Always handle 410 (Gone) responses gracefully.
+</Warning>
+
+---
+
+## Integration Example
+
+### TypeScript/React
+
+```typescript
+import { useState, useEffect } from 'react';
+
+function FrameViewer({ frameId }: { frameId: number }) {
+  const [imageUrl, setImageUrl] = useState<string>('');
+  const [ocrData, setOcrData] = useState<any>(null);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const loadFrame = async () => {
+      try {
+        // Load frame image
+        const imageResponse = await fetch(
+          `http://localhost:3030/frames/${frameId}?redact_pii=true`
+        );
+        
+        if (!imageResponse.ok) {
+          if (imageResponse.status === 410) {
+            // Frame unavailable, find next valid one
+            const nextResponse = await fetch(
+              `http://localhost:3030/frames/next-valid?frame_id=${frameId}&direction=forward`
+            );
+            const nextData = await nextResponse.json();
+            // Retry with new frame_id
+            return loadFrame(nextData.frame_id);
+          }
+          throw new Error('Failed to load frame');
+        }
+        
+        const blob = await imageResponse.blob();
+        setImageUrl(URL.createObjectURL(blob));
+        
+        // Load OCR data
+        const ocrResponse = await fetch(
+          `http://localhost:3030/frames/${frameId}/ocr`
+        );
+        const ocr = await ocrResponse.json();
+        setOcrData(ocr);
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+    
+    loadFrame();
+  }, [frameId]);
+
+  if (error) return <div>Error: {error}</div>;
+  if (!imageUrl) return <div>Loading...</div>;
+
+  return (
+    <div className="frame-viewer">
+      <img src={imageUrl} alt="Frame" />
+      {ocrData && (
+        <div className="ocr-overlay">
+          {ocrData.text_positions.map((pos, i) => (
+            <div
+              key={i}
+              className="text-box"
+              style={{
+                position: 'absolute',
+                left: pos.x,
+                top: pos.y,
+                width: pos.width,
+                height: pos.height,
+              }}
+            >
+              {pos.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## Next Steps
+
+- Use the [search endpoint](/api/search) to find frames by content
+- Learn about [audio endpoint](/api/audio) for audio transcriptions
+- Check [health endpoint](/api/health) for system status

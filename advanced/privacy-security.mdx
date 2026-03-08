@@ -1,0 +1,604 @@
+---
+title: "Privacy & Security"
+description: "Local-first architecture, encryption, and data ownership"
+---
+
+## Overview
+
+screenpipe is designed with privacy as the default. All data stays on your device, and you maintain complete ownership and control.
+
+<Note>
+screenpipe is **100% local by default**. No cloud required, no account required, no data sent anywhere.
+</Note>
+
+## Core Principles
+
+### 1. Local-First Architecture
+
+All screen recordings and audio transcriptions are stored locally on your device:
+
+```
+┌─────────────────────────────────────┐
+│         Your Device                 │
+│                                     │
+│  Screen + Audio  →  Local SQLite    │
+│                                     │
+│  - OCR text                         │
+│  - Audio transcriptions             │
+│  - Screenshots (JPEG)               │
+│  - Video chunks (MP4)               │
+│  - Metadata                         │
+│                                     │
+│  ✗ No cloud uploads                 │
+│  ✗ No external servers              │
+│  ✗ No data leaving your machine     │
+└─────────────────────────────────────┘
+```
+
+**Storage location**:
+- **macOS**: `~/Library/Application Support/screenpipe/`
+- **Windows**: `%APPDATA%\screenpipe\`
+- **Linux**: `~/.screenpipe/`
+
+All data is stored in a **local SQLite database** with full-text search (FTS5).
+
+### 2. No Cloud by Default
+
+screenpipe works completely offline:
+
+- No account creation required
+- No sign-up or login needed
+- No internet connection required
+- No data sent to external servers
+- No telemetry or analytics
+
+The only network requests are:
+- **Optional**: Cloud sync (if you explicitly enable it)
+- **Optional**: AI provider APIs (if you use cloud AI models)
+- **Update checks**: For new app versions (can be disabled)
+
+### 3. Open Source
+
+screenpipe is fully open source under the **MIT license**:
+
+- Complete source code available on GitHub
+- Auditable by security researchers
+- No hidden functionality
+- Community-driven development
+- You can build from source
+
+**Repository**: [github.com/screenpipe/screenpipe](https://github.com/screenpipe/screenpipe)
+
+### 4. You Own Your Data
+
+Complete control over your data:
+
+- **Export**: SQLite database can be exported anytime
+- **Delete**: Wipe all data with one click
+- **Backup**: Copy database files to external storage
+- **Portable**: Move data between devices manually
+- **No lock-in**: Standard SQLite format, no proprietary encoding
+
+## Data Storage
+
+### SQLite Database
+
+screenpipe uses SQLite for all structured data:
+
+```sql
+-- Database schema (simplified)
+
+CREATE TABLE frames (
+  id INTEGER PRIMARY KEY,
+  timestamp DATETIME,
+  app_name TEXT,
+  window_name TEXT,
+  browser_url TEXT,
+  device_name TEXT,
+  file_path TEXT,  -- Path to screenshot JPEG
+  
+  -- Cloud sync fields (NULL by default)
+  sync_id TEXT,
+  machine_id TEXT,
+  synced_at DATETIME
+);
+
+CREATE TABLE ocr_text (
+  id INTEGER PRIMARY KEY,
+  frame_id INTEGER,  -- Foreign key to frames
+  text TEXT,
+  confidence REAL,
+  
+  -- Full-text search index
+  FOREIGN KEY (frame_id) REFERENCES frames(id)
+);
+
+CREATE VIRTUAL TABLE ocr_text_fts USING fts5(
+  text,
+  content='ocr_text'
+);
+
+CREATE TABLE audio_chunks (
+  id INTEGER PRIMARY KEY,
+  start_time DATETIME,
+  end_time DATETIME,
+  transcription TEXT,
+  speaker_id TEXT,
+  device_name TEXT
+);
+```
+
+**Storage efficiency**:
+- Text data: ~1-5 KB per frame
+- Screenshots (JPEG): ~50-200 KB per frame
+- Video chunks: ~5-50 MB per chunk (5-10 minutes)
+- Total: ~5-10 GB per month (event-driven capture)
+
+### File System Layout
+
+```
+~/.screenpipe/
+├── db.sqlite              # Main database
+├── db.sqlite-wal          # Write-ahead log
+├── db.sqlite-shm          # Shared memory
+├── frames/                # Screenshot JPEGs
+│   ├── 2026-03-08/
+│   │   ├── monitor_21/
+│   │   │   ├── frame_1234567890.jpg
+│   │   │   └── ...
+│   │   └── monitor_22/
+│   └── ...
+├── videos/                # Video chunks (MP4)
+│   ├── 2026-03-08/
+│   │   ├── chunk_001.mp4
+│   │   └── ...
+│   └── ...
+├── pipes/                 # AI pipe configurations
+│   ├── obsidian-sync/
+│   │   ├── pipe.md
+│   │   └── config.json
+│   └── ...
+└── logs/                  # Application logs
+    ├── screenpipe.2026-03-08.log
+    └── ...
+```
+
+## Encryption
+
+### Local Storage
+
+By default, local data is **not encrypted** for performance reasons. However, you can enable encryption:
+
+#### Disk Encryption (Recommended)
+
+Use your operating system's disk encryption:
+
+- **macOS**: FileVault
+- **Windows**: BitLocker
+- **Linux**: LUKS
+
+This encrypts all screenpipe data along with your other files.
+
+#### Database Encryption
+
+For additional protection, screenpipe can encrypt the SQLite database:
+
+```bash
+# Enable database encryption
+screenpipe config --encrypt-db --password "your-password"
+
+# Performance impact: ~5-10% slower queries
+```
+
+<Warning>
+If you forget the database encryption password, your data cannot be recovered. Store it securely.
+</Warning>
+
+### Cloud Sync Encryption
+
+If you enable cloud sync, all data is encrypted end-to-end:
+
+**Encryption stack**:
+- **Algorithm**: ChaCha20-Poly1305 (authenticated encryption)
+- **Key derivation**: Argon2id (password-based)
+- **Key storage**: Keys never leave your devices
+- **Server knowledge**: Zero (cannot decrypt your data)
+
+**Implementation** (from `screenpipe-core/Cargo.toml`):
+```rust
+use chacha20poly1305::ChaCha20Poly1305;
+use argon2::Argon2;
+
+// Derive key from password
+let key = Argon2::default()
+    .hash_password(password, salt)?
+    .hash;
+
+// Encrypt data
+let cipher = ChaCha20Poly1305::new(&key);
+let ciphertext = cipher.encrypt(&nonce, plaintext)?;
+```
+
+See [Cloud Sync](/advanced/cloud-sync) for more details.
+
+## Privacy Features
+
+### 1. Selective Capture
+
+Control what gets recorded:
+
+**App filtering**:
+```yaml
+# Only capture these apps
+allow_apps:
+  - "Chrome"
+  - "VS Code"
+  - "Slack"
+
+# Never capture these apps
+deny_apps:
+  - "1Password"
+  - "Signal"
+  - "Banking*"  # Wildcard
+```
+
+**Window filtering**:
+```yaml
+# Never capture windows with these titles
+deny_windows:
+  - "*password*"
+  - "*incognito*"
+  - "*private*"
+```
+
+**URL filtering** (browser windows):
+```yaml
+# Block specific sites
+deny_urls:
+  - "*facebook.com*"
+  - "*gmail.com*"
+  - "*bank.com*"
+```
+
+**Time-based filtering**:
+```yaml
+# Only capture during work hours
+schedule:
+  days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+  hours: "09:00-18:00"
+```
+
+### 2. Incognito/Private Mode Detection
+
+screenpipe automatically detects and can skip:
+
+- Chrome Incognito windows
+- Firefox Private Browsing
+- Safari Private windows
+- Edge InPrivate windows
+
+Enable in settings: **Privacy → Skip Private Browsing**
+
+### 3. Data Redaction
+
+Automatically redact sensitive information:
+
+```yaml
+# Redact patterns from OCR text
+redact_patterns:
+  - regex: "\b\d{3}-\d{2}-\d{4}\b"  # SSN
+    replacement: "[REDACTED-SSN]"
+  
+  - regex: "\b\d{16}\b"  # Credit card
+    replacement: "[REDACTED-CC]"
+  
+  - regex: "password\\s*[:=]\\s*\\S+"  # Passwords
+    replacement: "password: [REDACTED]"
+```
+
+### 4. Retention Policies
+
+Automatically delete old data:
+
+```yaml
+retention:
+  max_age_days: 90  # Delete data older than 90 days
+  max_size_gb: 100  # Delete oldest data when over 100 GB
+```
+
+## AI Data Permissions
+
+When using AI pipes, control what data AI agents can access:
+
+### Deterministic Access Control
+
+Permissions are **not prompt-based** — they're enforced at the OS level:
+
+```yaml
+---
+name: my-pipe
+
+# Only access Slack and Zoom
+allow-apps:
+  - "Slack"
+  - "Zoom"
+
+# Never access password managers
+deny-apps:
+  - "1Password"
+  - "Bitwarden"
+
+# Only audio transcriptions (no screenshots)
+allow-content-types:
+  - "audio"
+
+# Only work hours
+time-range: "09:00-18:00"
+days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+
+# Block sensitive endpoints
+allow-raw-sql: false
+allow-frames: false
+---
+```
+
+**Enforcement layers**:
+
+1. **Skill gating**: AI never learns about denied APIs
+2. **Agent interception**: Calls blocked before execution
+3. **Server middleware**: Cryptographic tokens validate every request
+
+See [Teams Deployment](/advanced/teams) for more on AI permissions.
+
+## Local AI Support
+
+Use fully local AI models for zero cloud dependency:
+
+### Ollama Integration
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model
+ollama pull llama3.2
+
+# Configure screenpipe
+screenpipe config --ai-provider ollama --model llama3.2
+```
+
+Now all AI processing happens locally:
+- Search summaries
+- Pipe agents
+- Daily digests
+- No data sent to cloud
+
+### Apple Intelligence (macOS)
+
+On supported Macs, screenpipe uses Apple Intelligence:
+
+- **On-device processing**: All AI runs on your Mac
+- **Zero cloud**: No data sent to Apple or OpenAI
+- **Zero cost**: No API charges
+- **Privacy**: Apple's on-device ML models
+
+Requires:
+- macOS 15.1+ (Sequoia)
+- Apple Silicon (M1 or newer)
+- 16 GB RAM recommended
+
+## Security Considerations
+
+<Warning>
+**Important security practices**:
+
+1. **Screen recording permissions**: screenpipe needs macOS/Windows permissions. Only grant to trusted apps.
+2. **Database backups**: If backing up to cloud, encrypt first.
+3. **Shared computers**: Don't use screenpipe on shared/public machines.
+4. **Malware risk**: A compromised system can read screenpipe's database.
+5. **Pipe sources**: Only install pipes from trusted sources.
+</Warning>
+
+### Threat Model
+
+What screenpipe protects against:
+
+✅ **Cloud provider access**: No cloud provider can read your data
+✅ **Network sniffing**: Local-only mode sends no network traffic
+✅ **Data breaches**: No central database to breach
+✅ **Unauthorized pipes**: Permissions enforce what AI can access
+
+What screenpipe **does not** protect against:
+
+❌ **Physical access**: Someone with access to your unlocked computer
+❌ **OS-level malware**: Malware with screen recording permissions
+❌ **Stolen backups**: Unencrypted database backups
+❌ **Compromised AI providers**: If using cloud AI, data sent to them
+
+### Audit Log
+
+Track access to your data:
+
+```bash
+# View database access log
+screenpipe logs --type access
+
+# Example output
+2026-03-08 10:15:32 | QUERY | pipe:obsidian-sync | SELECT text FROM ocr_text WHERE timestamp > ...
+2026-03-08 10:16:45 | EXPORT | user:manual | Exported 1000 frames to export.json
+2026-03-08 10:20:12 | DELETE | user:manual | Deleted all data older than 2026-01-01
+```
+
+## Data Export
+
+Export your data for backup or migration:
+
+### Full Database Export
+
+```bash
+# Export everything to JSON
+screenpipe export --format json --output backup.json
+
+# Export specific time range
+screenpipe export --from 2026-03-01 --to 2026-03-08 --output march.json
+
+# Export only text (no screenshots)
+screenpipe export --text-only --output text-backup.json
+```
+
+### Selective Export
+
+```bash
+# Export specific apps
+screenpipe export --apps "Chrome,Slack" --output work.json
+
+# Export search results
+screenpipe search "project deadline" --export --output deadline.json
+```
+
+### Raw Database Copy
+
+```bash
+# Stop screenpipe first
+screenpipe stop
+
+# Copy database files
+cp ~/.screenpipe/db.sqlite ~/backup/
+cp -r ~/.screenpipe/frames ~/backup/
+cp -r ~/.screenpipe/videos ~/backup/
+
+# Restart screenpipe
+screenpipe start
+```
+
+## Data Deletion
+
+### Selective Deletion
+
+```bash
+# Delete old data
+screenpipe delete --older-than 90d
+
+# Delete specific apps
+screenpipe delete --apps "Chrome,Slack"
+
+# Delete by date range
+screenpipe delete --from 2026-03-01 --to 2026-03-08
+
+# Delete all data from a specific window
+screenpipe delete --window "*password*"
+```
+
+### Complete Wipe
+
+```bash
+# Delete everything (requires confirmation)
+screenpipe wipe
+
+# Or manually:
+screenpipe stop
+rm -rf ~/.screenpipe/
+```
+
+<Warning>
+Data deletion is **permanent and irreversible**. Export backups before deleting if you might need the data later.
+</Warning>
+
+## Compliance
+
+### GDPR (EU)
+
+screenpipe is GDPR-compliant:
+
+- **Right to access**: Export all data anytime
+- **Right to deletion**: Delete all data with one command
+- **Right to portability**: Standard SQLite format
+- **Data minimization**: Only capture what you configure
+- **Storage limitation**: Retention policies auto-delete old data
+- **Privacy by design**: Local-first, no cloud by default
+
+### CCPA (California)
+
+Compliance with California privacy law:
+
+- **Right to know**: View all captured data
+- **Right to delete**: Complete data deletion
+- **Right to opt-out**: Don't enable in the first place
+- **No sale of data**: Your data never leaves your device
+
+### HIPAA (Healthcare)
+
+For healthcare use cases:
+
+- Use disk encryption (FileVault/BitLocker)
+- Enable database encryption
+- Configure retention policies
+- Use local AI only (Ollama or Apple Intelligence)
+- Don't enable cloud sync
+- Review access logs regularly
+
+<Note>
+For HIPAA compliance, screenpipe Teams offers BAA (Business Associate Agreement) for enterprise customers.
+</Note>
+
+## Transparency
+
+### What Data is Collected
+
+**By screenpipe (stored locally)**:
+- Screenshots (JPEG)
+- OCR text from screenshots
+- Audio recordings and transcriptions
+- App names and window titles
+- Browser URLs (if configured)
+- Timestamps
+- Device identifiers (for multi-device sync)
+
+**By screenpipe (optional, if you enable cloud sync)**:
+- Encrypted versions of the above
+- Your email (for account)
+- Subscription status
+- Sync timestamps
+
+**By AI providers (if you use cloud AI)**:
+- Text sent to AI for processing
+- Search queries (if using AI search)
+- Varies by provider (OpenAI, Anthropic, etc.)
+
+**Never collected**:
+- Credit card details are handled by Stripe (PCI compliant)
+- No analytics or telemetry without consent
+- No tracking pixels or third-party scripts
+
+### Third-Party Services
+
+Optional services you might enable:
+
+| Service | Purpose | Data Sent | Privacy Policy |
+|---------|---------|-----------|----------------|
+| OpenAI | AI processing | Text you search/summarize | [Link](https://openai.com/privacy) |
+| Anthropic | AI processing | Text you search/summarize | [Link](https://anthropic.com/privacy) |
+| Deepgram | Audio transcription | Audio chunks | [Link](https://deepgram.com/privacy) |
+| Stripe | Payment processing | Payment details | [Link](https://stripe.com/privacy) |
+| screenpipe Cloud | Optional sync | Encrypted data | [Link](https://screenpi.pe/privacy) |
+
+## Best Practices
+
+<Note>
+**Recommended privacy configuration**:
+
+1. Enable disk encryption (FileVault/BitLocker)
+2. Configure app blocklist (password managers, banking)
+3. Enable private browsing detection
+4. Set retention policy (delete after 90 days)
+5. Use local AI (Ollama or Apple Intelligence)
+6. Review pipe permissions before enabling
+7. Regularly audit what's being captured
+8. Back up database to encrypted external drive
+</Note>
+
+## Related Resources
+
+- [Cloud Sync](/advanced/cloud-sync) - Optional encrypted sync
+- [Teams Deployment](/advanced/teams) - Privacy in team environments
+- [Performance](/advanced/performance) - Optimize storage usage

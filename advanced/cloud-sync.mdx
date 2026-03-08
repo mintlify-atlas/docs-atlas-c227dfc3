@@ -1,0 +1,288 @@
+---
+title: "Cloud Sync"
+description: "End-to-end encrypted sync between devices"
+---
+
+## Overview
+
+screenpipe supports optional end-to-end encrypted cloud sync between your devices. This allows you to search your screen history across all your machines while maintaining zero-knowledge encryption.
+
+<Note>
+Cloud sync is **completely optional**. By default, all data stays local on your device. You must explicitly opt in to enable sync.
+</Note>
+
+## How It Works
+
+When cloud sync is enabled, screenpipe synchronizes your data across devices:
+
+```
+┌─────────────────┐      encrypted       ┌─────────────────┐
+│   MacBook Pro   │ ────── sync ──────▶  │   Cloud Server  │
+└─────────────────┘                       └─────────────────┘
+                                                   │
+                                          encrypted │
+                                                   ▼
+                                          ┌─────────────────┐
+                                          │    Mac Mini     │
+                                          └─────────────────┘
+```
+
+### What Gets Synced
+
+**Text-only sync (default)**:
+- OCR text from screenshots
+- Audio transcriptions
+- Metadata (timestamps, app names, window titles, browser URLs)
+- Device identifiers for multi-device search
+
+**Size**: Typically 1-5 KB per frame
+
+**Full sync (optional)**:
+- Everything from text-only mode
+- Video chunks (5-50 MB per chunk)
+- Full timeline playback on any device
+
+<Warning>
+Full sync with video chunks can consume significant bandwidth and cloud storage. Most users only need text-only sync for search functionality.
+</Warning>
+
+## Encryption Details
+
+All synced data is protected with **zero-knowledge encryption**:
+
+- **Encryption**: ChaCha20-Poly1305 (authenticated encryption)
+- **Key derivation**: Argon2id (memory-hard, resistant to GPU attacks)
+- **Key storage**: Keys never leave your devices
+- **Server knowledge**: The cloud server cannot decrypt your data
+
+Encryption dependencies (from `screenpipe-core/Cargo.toml`):
+```toml
+argon2 = "0.5"          # Password-based key derivation
+chacha20poly1305 = "0.10" # Authenticated encryption
+hmac = "0.12"            # Message authentication
+sha2 = "0.10"            # Cryptographic hashing
+zeroize = "1.8"          # Secure memory clearing
+```
+
+## Database Sync Architecture
+
+screenpipe uses a distributed sync model with unique identifiers:
+
+### Sync IDs
+
+Each record gets a globally unique `sync_id` (UUID) when created:
+
+```sql
+frames:
+  - sync_id TEXT        -- Global UUID for deduplication
+  - machine_id TEXT     -- Device identifier
+  - synced_at DATETIME  -- NULL until uploaded
+
+video_chunks:
+  - sync_id TEXT
+  - machine_id TEXT
+  - synced_at DATETIME
+
+ocr_text:
+  - sync_id TEXT        -- Inherited from parent frame
+  - synced_at DATETIME
+```
+
+### Multi-Device Scenario
+
+**Example**: MacBook Pro + Mac Mini both running screenpipe
+
+```
+MacBook:  capture → OCR → local SQLite (machine_id = "macbook-abc")
+Mac Mini: capture → OCR → local SQLite (machine_id = "macmini-xyz")
+                    ↓
+          Cloud sync merges both into unified search
+```
+
+Both machines contribute to your searchable history. When you search from any device, you see results from all synced machines.
+
+## Deduplication
+
+If multiple devices capture the same content (e.g., both machines in a Zoom call), the cloud receives separate OCR text entries. Deduplication happens at the search/display layer, not the pipeline layer.
+
+Options for handling duplicates:
+- Show all results (user sees context from each device)
+- Deduplicate by content similarity (merge near-identical text)
+- Deduplicate by timestamp + content hash
+
+## Sync Modes
+
+### Text-Only Sync
+
+**Best for**: Most users who want cross-device search
+
+- Syncs OCR text and metadata
+- Low bandwidth usage (~1-5 KB/frame)
+- Timeline scrubbing only works on the machine that captured frames
+- Search works across all devices
+
+### Full Sync
+
+**Best for**: Users who need complete timeline access everywhere
+
+- Syncs everything including video chunks
+- High bandwidth/storage requirements
+- Full timeline playback on any device
+- Expensive in bandwidth and cloud storage costs
+
+### On-Demand Sync
+
+**Best for**: Users who occasionally need frames from other devices
+
+- Syncs text and metadata by default
+- Video chunks pulled from source machine on demand
+- Requires devices to be online or uses cloud relay
+- Works over Tailscale, LAN, or cloud relay
+
+## Performance Impact
+
+Sync is designed to have minimal impact on your system:
+
+- **CPU usage**: < 1% additional overhead
+- **Network**: Background sync every 30-60 seconds
+- **Battery**: Negligible impact (syncs when on Wi-Fi)
+- **Storage**: Text-only mode uses ~5-10 MB/day per device
+
+## Setup
+
+### Enable Cloud Sync
+
+1. Open screenpipe settings
+2. Navigate to **Sync & Backup**
+3. Click **Enable Cloud Sync**
+4. Choose your sync mode (text-only recommended)
+5. Set a strong encryption password
+
+<Warning>
+**Store your encryption password safely!** If you lose it, your synced data cannot be recovered. The cloud server does not have access to decrypt your data.
+</Warning>
+
+### Sync Multiple Devices
+
+1. Enable cloud sync on your first device
+2. Note your encryption password
+3. Install screenpipe on additional devices
+4. Enable cloud sync using the **same encryption password**
+5. Wait for initial sync to complete
+
+### Verify Sync Status
+
+Check sync status in the screenpipe UI:
+- **Last sync**: Timestamp of most recent sync
+- **Synced frames**: Number of frames uploaded
+- **Pending**: Frames waiting to be synced
+
+## Pricing
+
+- **Pro subscription**: $39/month includes cloud sync
+- **Lifetime + Pro 1 year**: $600 one-time (includes 1 year of Pro)
+- **Storage limits**: 
+  - Text-only: ~1 GB/year per device
+  - Full sync: ~100-500 GB/year per device
+
+## Troubleshooting
+
+### Sync Not Working
+
+1. Check internet connection
+2. Verify authentication status in settings
+3. Check sync logs: `~/.screenpipe/sync.log`
+4. Ensure sync password is identical on all devices
+
+### Slow Sync Speed
+
+- Text-only sync should complete in seconds
+- Full sync depends on video chunk size and network speed
+- Reduce sync frequency if on metered connection
+
+### Conflicting Data
+
+If the same time period is captured on multiple devices:
+- Both entries are preserved
+- Search results show all matching frames
+- Use device filter to see data from specific machine
+
+## Security Considerations
+
+<Warning>
+**Best practices for cloud sync security**:
+
+- Use a unique, strong encryption password (20+ characters)
+- Don't reuse passwords from other services
+- Store password in a password manager
+- Enable two-factor authentication on your screenpipe account
+- Regularly audit synced devices in settings
+</Warning>
+
+### What The Cloud Server Knows
+
+- Your account email and subscription status
+- Number of synced devices
+- Total encrypted data size
+- Sync timestamps and frequency
+
+### What The Cloud Server CANNOT Access
+
+- Your encryption password
+- Any decrypted screen content
+- OCR text or audio transcriptions
+- App names, window titles, or URLs
+- Any personally identifiable information from your screens
+
+## API Access
+
+Sync functionality is available via the screenpipe API:
+
+```bash
+# Check sync status
+curl http://localhost:3030/sync/status
+
+# Trigger manual sync
+curl -X POST http://localhost:3030/sync/now
+
+# Query sync history
+curl http://localhost:3030/sync/history?limit=10
+```
+
+## Advanced Configuration
+
+Sync behavior can be customized via environment variables:
+
+```bash
+# Sync interval (seconds)
+export SCREENPIPE_SYNC_INTERVAL=60
+
+# Text-only mode (disable video sync)
+export SCREENPIPE_SYNC_TEXT_ONLY=true
+
+# Sync only on Wi-Fi
+export SCREENPIPE_SYNC_WIFI_ONLY=true
+
+# Bandwidth limit (KB/s)
+export SCREENPIPE_SYNC_BANDWIDTH_LIMIT=500
+```
+
+## Migration from Local-Only
+
+Moving from local-only to cloud sync:
+
+1. Enable cloud sync in settings
+2. Choose **full history sync** or **new data only**
+3. For full history: initial upload may take hours/days depending on data size
+4. Monitor sync progress in settings
+5. Verify search results include historical data
+
+<Note>
+Full history sync uploads all existing frames and transcriptions. For large databases (>50 GB), consider text-only sync or selective date ranges.
+</Note>
+
+## Related Resources
+
+- [Privacy & Security](/advanced/privacy-security) - Learn about screenpipe's privacy model
+- [Teams Deployment](/advanced/teams) - Cloud sync for team environments
+- [Performance Optimization](/advanced/performance) - Optimize sync for battery life

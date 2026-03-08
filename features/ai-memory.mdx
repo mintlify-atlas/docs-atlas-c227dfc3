@@ -1,0 +1,523 @@
+---
+title: 'AI Memory'
+description: 'How screenpipe serves as persistent AI memory and context for intelligent assistants'
+---
+
+# AI Memory
+
+screenpipe transforms your screen and audio into persistent, queryable memory that AI agents can use to understand what you're doing and act autonomously.
+
+## The Problem
+
+Every AI interaction today requires:
+1. **Stopping work** to write a prompt
+2. **Translating intent** — explaining context the AI should already know
+3. **Waiting** for a response
+
+Your screen already shows exactly what you're doing. The context is right there. But AI can't see it.
+
+## How screenpipe Solves This
+
+<Steps>
+  <Step title="Continuous Context Capture">
+    screenpipe records everything happening on your screen and audio:
+    - Every app you use
+    - Every window you focus
+    - Every word you type or say
+    - Every conversation you have
+  </Step>
+  
+  <Step title="Queryable Memory">
+    All captured data is indexed and searchable:
+    - Full-text search across OCR and transcriptions
+    - Time-based filtering
+    - App/window/speaker filtering
+    - Natural language queries
+  </Step>
+  
+  <Step title="AI Context Layer">
+    AI agents query screenpipe to understand:
+    - What you're currently working on
+    - What you did earlier today
+    - Conversations from meetings
+    - Code you wrote, docs you read, emails you sent
+  </Step>
+  
+  <Step title="Autonomous Action">
+    With full context, AI agents can:
+    - Act without prompts (triggered by events)
+    - Make decisions based on your actual behavior
+    - Remember everything you've done
+  </Step>
+</Steps>
+
+<Note>
+  **Vision**: AI agents that watch your screen, understand your work, and act autonomously without prompts. Recording + AI = ability to clone human digital work at high fidelity.
+</Note>
+
+## Use Cases
+
+### Memory Retrieval
+
+<Tabs>
+  <Tab title="Find Anything">
+    ```typescript
+    // AI: "What was the URL from that design mockup earlier?"
+    const response = await fetch(
+      'http://localhost:3030/search?q=figma+design+mockup&content_type=ocr'
+    );
+    const results = await response.json();
+    
+    // Returns: screenshot with Figma URL + timestamp
+    ```
+    
+    **Never lose context again**. AI can retrieve anything you've seen or heard.
+  </Tab>
+  
+  <Tab title="Meeting Notes">
+    ```typescript
+    // AI: "Summarize my 2pm meeting"
+    const twopm = new Date();
+    twopm.setHours(14, 0, 0, 0);
+    const threepm = new Date();
+    threepm.setHours(15, 0, 0, 0);
+    
+    const response = await fetch(
+      `http://localhost:3030/search?` +
+      `content_type=audio&` +
+      `start_time=${twopm.toISOString()}&` +
+      `end_time=${threepm.toISOString()}`
+    );
+    const meeting = await response.json();
+    
+    // AI gets full transcript, identifies speakers, extracts action items
+    ```
+  </Tab>
+  
+  <Tab title="Code Context">
+    ```typescript
+    // AI: "What was I working on in main.rs yesterday?"
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const response = await fetch(
+      `http://localhost:3030/search?` +
+      `q=main.rs&` +
+      `app_name=Code&` +
+      `start_time=${yesterday.toISOString()}`
+    );
+    
+    // AI sees all code you wrote, docs you read, terminal commands you ran
+    ```
+  </Tab>
+</Tabs>
+
+### Ambient Automation
+
+<CodeGroup>
+```typescript Auto-Documentation
+// AI watches you code, writes docs automatically
+const recentCode = await fetch(
+  `http://localhost:3030/timeline?` +
+  `app_name=Code&` +
+  `start_time=${lastHour.toISOString()}`
+);
+
+const data = await recentCode.json();
+const codeChanges = data.data
+  .filter(item => item.content.window_name.includes('.rs'))
+  .map(item => item.content.text);
+
+// AI: Detects new functions, generates docstrings, updates README
+```
+
+```typescript Smart Replies
+// AI reads your Slack messages, suggests replies
+const slackMessages = await fetch(
+  `http://localhost:3030/search?` +
+  `app_name=Slack&` +
+  `content_type=ocr&` +
+  `limit=10`
+);
+
+const messages = await slackMessages.json();
+// AI: Understands context, drafts replies, learns your tone
+```
+
+```typescript Meeting Prep
+// AI detects calendar event, prepares briefing
+const calendarOpen = await fetch(
+  `http://localhost:3030/search?` +
+  `app_name=Calendar&` +
+  `q=meeting`
+);
+
+// AI: Finds meeting title, searches past conversations with attendees,
+// generates briefing doc with action items, previous discussions
+```
+</CodeGroup>
+
+### Context-Aware Assistants
+
+<CodeGroup>
+```typescript Cursor Integration
+// Cursor AI gets full context of what you're building
+import { screenpipe } from 'screenpipe-sdk';
+
+async function getCodingContext() {
+  const lastHour = new Date(Date.now() - 60 * 60 * 1000);
+  
+  // Get all code editor activity
+  const editorActivity = await screenpipe.search({
+    app_name: 'Code',
+    start_time: lastHour.toISOString(),
+    content_type: 'ocr'
+  });
+  
+  // Get terminal commands
+  const terminalActivity = await screenpipe.search({
+    app_name: 'Terminal',
+    start_time: lastHour.toISOString(),
+    content_type: 'ocr'
+  });
+  
+  // Get browser tabs (docs you read)
+  const docsActivity = await screenpipe.search({
+    app_name: 'Chrome',
+    browser_url: 'docs',
+    start_time: lastHour.toISOString(),
+    content_type: 'ocr'
+  });
+  
+  return {
+    files_edited: editorActivity.data,
+    commands_run: terminalActivity.data,
+    docs_read: docsActivity.data
+  };
+}
+
+// Cursor now knows:
+// - What files you're working on
+// - What commands you ran (build errors, test results)
+// - What documentation you referenced
+// - Your coding patterns and style
+```
+
+```typescript ChatGPT Memory
+// ChatGPT plugin that remembers everything
+async function getConversationContext(topic: string) {
+  // Search all past conversations about this topic
+  const pastConvos = await screenpipe.search({
+    q: topic,
+    content_type: 'audio',
+    speaker_name: 'me'
+  });
+  
+  // Search all documents you've read about it
+  const docs = await screenpipe.search({
+    q: topic,
+    content_type: 'ocr'
+  });
+  
+  return {
+    past_conversations: pastConvos.data,
+    documents_read: docs.data,
+    // AI now has full context without you explaining anything
+  };
+}
+```
+</CodeGroup>
+
+## AI Agent Patterns
+
+### Event-Driven Triggers
+
+AI agents can listen to screenpipe events and act autonomously:
+
+<CodeGroup>
+```typescript Trigger on App Switch
+// When you open Figma, AI prepares design assets
+const watcher = screenpipe.watch({
+  content_type: 'ocr',
+  capture_trigger: 'app_switch'
+});
+
+watcher.on('data', async (item) => {
+  if (item.content.app_name === 'Figma') {
+    // AI: Load recent design files, prepare asset library
+    console.log('Figma opened, preparing design context...');
+    
+    const recentDesigns = await screenpipe.search({
+      app_name: 'Figma',
+      start_time: lastWeek.toISOString()
+    });
+    
+    // Auto-open recent files, sync with design system
+  }
+});
+```
+
+```typescript Trigger on Keywords
+// When you mention "deploy", AI prepares deployment checklist
+const watcher = screenpipe.watch({
+  content_type: 'audio'
+});
+
+watcher.on('data', async (item) => {
+  if (item.content.transcription.includes('deploy')) {
+    console.log('Deployment mentioned, running pre-flight checks...');
+    
+    // AI: Run tests, check CI/CD status, verify staging, prepare rollback plan
+    const deploymentContext = await prepareDeployment();
+    // Send notification with checklist
+  }
+});
+```
+</CodeGroup>
+
+### Proactive Suggestions
+
+<CodeGroup>
+```typescript Detect Repetitive Work
+// AI notices you doing the same task repeatedly
+const recentActivity = await screenpipe.timeline({
+  start_time: lastWeek.toISOString(),
+  limit: 1000
+});
+
+// Analyze patterns
+const patterns = detectRepetitivePatterns(recentActivity.data);
+
+if (patterns.length > 0) {
+  // AI: "I noticed you copy-paste this config 5 times a day. Want me to automate it?"
+  suggestAutomation(patterns);
+}
+```
+
+```typescript Context-Aware Reminders
+// AI reminds you based on actual behavior, not timers
+const standupTime = new Date();
+standupTime.setHours(10, 0, 0, 0);
+
+// Check if you're in a meeting
+const currentActivity = await screenpipe.search({
+  start_time: standupTime.toISOString(),
+  content_type: 'audio',
+  limit: 1
+});
+
+if (currentActivity.pagination.total === 0) {
+  // AI: "It's 10am but you're not in standup. Did it get canceled?"
+  checkMeetingStatus();
+}
+```
+</CodeGroup>
+
+### Memory Augmentation
+
+<CodeGroup>
+```typescript Contextual Search
+// AI understands temporal context
+const query = "that bug we discussed";
+
+// Instead of searching all time:
+// 1. Find recent conversations
+const recentMeetings = await screenpipe.search({
+  content_type: 'audio',
+  start_time: lastWeek.toISOString(),
+  q: 'bug'
+});
+
+// 2. Find code changes around that time
+const codeChanges = await screenpipe.search({
+  app_name: 'Code',
+  start_time: recentMeetings.data[0].content.timestamp,
+  content_type: 'ocr'
+});
+
+// AI: "You discussed the auth bug on March 5th at 2pm, then fixed it in auth.rs at 3pm."
+```
+
+```typescript Cross-Modal Memory
+// Link audio conversations to screen activity
+async function findRelatedContext(transcription: string) {
+  // Extract entities from transcription
+  const entities = extractEntities(transcription); // ["Q4 roadmap", "marketing"]
+  
+  // Find related screen activity
+  const relatedScreens = await Promise.all(
+    entities.map(entity => 
+      screenpipe.search({
+        q: entity,
+        content_type: 'ocr'
+      })
+    )
+  );
+  
+  // AI now links spoken words to documents you were viewing
+  return relatedScreens.flat();
+}
+```
+</CodeGroup>
+
+## Privacy & Security
+
+### Local-First Architecture
+
+<Info>
+  **All data stays on your machine**. screenpipe never sends data to external servers unless you explicitly enable cloud sync (zero-knowledge encrypted).
+</Info>
+
+<Tabs>
+  <Tab title="Local Storage">
+    ```bash
+    ~/.screenpipe/
+      data/
+        2026-03-08/
+          *.jpg           # Snapshots (JPEG)
+      screenpipe.db       # SQLite database
+      audio_chunks/       # Audio segments
+    ```
+    
+    All data is stored locally:
+    - Screenshots: `~/.screenpipe/data/`
+    - Database: `~/.screenpipe/screenpipe.db`
+    - Audio: `~/.screenpipe/audio_chunks/`
+  </Tab>
+  
+  <Tab title="Ignored Windows">
+    Exclude sensitive apps from capture:
+    
+    ```json
+    {
+      "ignored_windows": [
+        "1Password",
+        "Bitwarden",
+        "Banking",
+        "Private Browsing"
+      ]
+    }
+    ```
+    
+    screenpipe skips screenshots when these apps are focused.
+  </Tab>
+  
+  <Tab title="Data Retention">
+    ```json
+    {
+      "retention": {
+        "max_days": 30,        // Auto-delete data older than 30 days
+        "max_storage_gb": 20   // Auto-delete when exceeding 20GB
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Building AI Agents
+
+### TypeScript SDK Example
+
+<CodeGroup>
+```typescript Install SDK
+npm install screenpipe-sdk
+```
+
+```typescript Basic Agent
+import { Screenpipe } from 'screenpipe-sdk';
+
+const screenpipe = new Screenpipe({
+  baseUrl: 'http://localhost:3030'
+});
+
+// Search memory
+const results = await screenpipe.search({
+  q: 'meeting notes',
+  limit: 10
+});
+
+// Get timeline
+const timeline = await screenpipe.timeline({
+  start_time: new Date(Date.now() - 24 * 60 * 60 * 1000),
+  limit: 100
+});
+
+// Watch for new data
+const watcher = screenpipe.watch({
+  content_type: 'audio'
+});
+
+watcher.on('data', (item) => {
+  console.log('New audio:', item.content.transcription);
+});
+```
+
+```typescript Advanced Agent
+class MeetingAssistant {
+  private screenpipe: Screenpipe;
+  
+  constructor() {
+    this.screenpipe = new Screenpipe();
+    this.startWatching();
+  }
+  
+  async startWatching() {
+    const watcher = this.screenpipe.watch({
+      content_type: 'audio'
+    });
+    
+    watcher.on('data', async (item) => {
+      // Detect meeting start
+      if (this.isMeetingStart(item)) {
+        await this.startMeetingRecording(item);
+      }
+      
+      // Detect action items
+      if (this.hasActionItem(item)) {
+        await this.createTask(item);
+      }
+      
+      // Detect meeting end
+      if (this.isMeetingEnd(item)) {
+        await this.generateSummary(item);
+      }
+    });
+  }
+  
+  async generateSummary(item: any) {
+    const meetingStart = await this.findMeetingStart(item.content.timestamp);
+    
+    const transcript = await this.screenpipe.search({
+      content_type: 'audio',
+      start_time: meetingStart.timestamp,
+      end_time: item.content.timestamp
+    });
+    
+    // Send to LLM for summarization
+    const summary = await this.summarize(transcript.data);
+    
+    // Save to notes app
+    await this.saveNotes(summary);
+  }
+}
+```
+</CodeGroup>
+
+## Reference
+
+### Vision Document
+
+Read the full vision: `VISION.md` in the screenpipe repository.
+
+Key principles:
+- **Stability over features** — fix what's broken before building what's new
+- **No feature creep** — every feature must serve Record, Rewind, or Ask
+- **Local-first always** — data never leaves the device without explicit opt-in
+- **Cross-platform** — macOS, Windows, Linux
+
+### Source Files
+
+- Search API: `crates/screenpipe-engine/src/routes/search.rs`
+- Timeline API: `crates/screenpipe-engine/src/routes/timeline.rs`
+- Database: `crates/screenpipe-db/src/lib.rs`
+- Vision spec: `VISION.md`
+- README: `README.md`

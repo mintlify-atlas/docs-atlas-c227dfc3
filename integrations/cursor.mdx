@@ -1,0 +1,251 @@
+---
+title: "Cursor - AI coding with screen context"
+sidebarTitle: "Cursor"
+description: "Connect screenpipe to Cursor to give this AI-powered IDE access to your screen history and coding context."
+icon: "code"
+---
+
+[Cursor](https://cursor.sh) is an AI-first code editor built on VS Code. with screenpipe integration, Cursor can reference what you've been working on across all your apps, not just the current editor.
+
+## one-click setup
+
+the fastest way to connect screenpipe to Cursor:
+
+<Steps>
+  <Step title="Click the deeplink">
+    [click here to install in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=screenpipe&config=eyJ0eXBlIjoic3RkaW8iLCJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInNjcmVlbnBpcGUtbWNwIl19)
+    
+    this opens Cursor and automatically configures screenpipe as an MCP server.
+  </Step>
+
+  <Step title="Confirm installation">
+    Cursor will prompt you to confirm. click **install** or **allow**.
+  </Step>
+
+  <Step title="Test it">
+    in Cursor's chat, try: *"what was I working on this morning?"*
+  </Step>
+</Steps>
+
+<Tip>
+ensure screenpipe is running before using Cursor with screenpipe features.
+</Tip>
+
+## manual setup
+
+if the deeplink doesn't work, configure manually:
+
+<Steps>
+  <Step title="Open Cursor settings">
+    click **Cursor** → **Settings** → **MCP** (or search for "MCP" in settings)
+  </Step>
+
+  <Step title="Add new MCP server">
+    click **add new global MCP server**
+  </Step>
+
+  <Step title="Configure screenpipe">
+    - **name**: `screenpipe`
+    - **command**: `npx`
+    - **args**: `["-y", "screenpipe-mcp"]`
+  </Step>
+
+  <Step title="Reload Cursor">
+    restart Cursor or reload the MCP servers
+  </Step>
+</Steps>
+
+### configuration file location
+
+Cursor stores MCP config in `.cursor/mcp.json` in your project root, or globally:
+
+```json
+{
+  "mcpServers": {
+    "screenpipe": {
+      "command": "npx",
+      "args": ["-y", "screenpipe-mcp"]
+    }
+  }
+}
+```
+
+## usage examples
+
+once configured, Cursor can access your screen history naturally:
+
+**recall what you were reading:**
+```
+> I was looking at documentation about async/await patterns earlier,
+> find it and help me apply those patterns here
+```
+
+**reference error messages:**
+```
+> what error messages have I seen in my terminal today?
+```
+
+**find API responses:**
+```
+> find the API response format I was looking at in the browser
+> and use it to type this function
+```
+
+**meeting context:**
+```
+> what did we discuss about authentication in the standup?
+> help me implement those changes
+```
+
+**clipboard history:**
+```
+> I copied some code earlier but lost it, can you find it?
+```
+
+## available tools
+
+Cursor gets access to these screenpipe tools:
+
+### search-content
+
+search your screen and audio history:
+
+- filter by content type (all, ocr, audio, input, accessibility)
+- time range filtering
+- app/window filtering
+- speaker filtering for audio
+- full-text search
+
+### export-video
+
+create video exports from screen recordings.
+
+### activity-summary
+
+get app usage and activity stats.
+
+### list-meetings
+
+list detected meetings with context.
+
+see [MCP server documentation](/integrations/mcp-server#available-tools) for full details.
+
+## composer mode with context
+
+Cursor's Composer mode works great with screenpipe:
+
+1. open Composer (`Cmd+I` or `Ctrl+I`)
+2. reference screenpipe context in your prompt:
+   ```
+   > use screenpipe to find the authentication flow I was looking at,
+   > then create a similar implementation here
+   ```
+3. Cursor will search screenpipe and use that context to write code
+
+## chat with context
+
+use screenpipe in regular Cursor chat:
+
+```
+> @screenpipe what was I working on before lunch?
+
+> search my screen history for the React component I was reading about
+
+> find mentions of "database schema" in my meetings today
+```
+
+## example workflows
+
+**context-aware coding:**
+```
+user: I was reading about error handling patterns in Go, apply those here
+
+Cursor: [searches screenpipe, finds content, applies patterns]
+```
+
+**recall implementation details:**
+```
+user: there was a TypeScript type definition I saw earlier that would work here
+
+Cursor: [searches screen history, finds type, suggests implementation]
+```
+
+**meeting follow-up:**
+```
+user: implement the API changes we discussed in standup
+
+Cursor: [searches audio transcriptions, extracts requirements, writes code]
+```
+
+## tips for best results
+
+**be specific about what you want:**
+```
+✅ "find the React component I was reading about this morning"
+✅ "show me error messages from my terminal in the last hour"
+✅ "what did we discuss about the API in today's meeting"
+
+❌ "find that thing I saw" (too vague)
+```
+
+**mention the app when relevant:**
+```
+✅ "what was I looking at in Chrome"
+✅ "find code from VS Code window"
+✅ "show me Slack messages about the deploy"
+```
+
+**use time ranges:**
+```
+✅ "this morning"
+✅ "in the last 2 hours"
+✅ "yesterday afternoon"
+✅ "during my 3pm meeting"
+```
+
+## project-specific vs global
+
+Cursor supports both project-level and global MCP servers:
+
+**project-level** (`.cursor/mcp.json` in project root):
+- only active in that specific project
+- can customize per-project
+
+**global** (via settings UI):
+- active across all projects
+- convenient for always-on tools like screenpipe
+
+recommendation: use **global** for screenpipe so it's available everywhere.
+
+## troubleshooting
+
+**MCP not showing up in Cursor?**
+- verify screenpipe is running: `curl http://localhost:3030/health`
+- check MCP settings in Cursor to see if screenpipe is listed
+- try restarting Cursor
+
+**Cursor can't access screenpipe data?**
+- ensure screenpipe has screen recording permissions
+- check screenpipe has been running and recording
+- verify the time range you're querying has data
+
+**queries timing out?**
+- reduce the time range
+- be more specific with filters (app name, content type)
+- avoid requesting screenshots unless needed
+
+**Node.js errors?**
+- ensure Node.js >= 18.0.0 is installed
+- try `npx clear-npx-cache` and reinstall
+
+**deeplink not working?**
+- manually configure via settings instead
+- check Cursor is up to date
+
+still stuck? [ask in our discord](https://discord.gg/screenpipe) — we can help troubleshoot.
+
+## resources
+
+- [Cursor documentation](https://cursor.sh/docs)
+- [MCP server documentation](/integrations/mcp-server)
+- [screenpipe API reference](/api/introduction)

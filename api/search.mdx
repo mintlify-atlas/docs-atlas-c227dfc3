@@ -1,0 +1,384 @@
+---
+title: "Search"
+description: "Search screen and audio content with filters"
+---
+
+# Search Content
+
+Query Screenpipe for content based on various filters. The search endpoint is the primary way to retrieve contextual data from your screen recordings and audio transcriptions.
+
+## Endpoint
+
+```
+GET /search
+```
+
+## Use Cases
+
+- Search for specific text across all applications
+- Find content from a specific application or window
+- Get screenshots from a particular time period
+- Retrieve all visits to a specific website
+
+## Query Parameters
+
+<ParamField query="q" type="string">
+  Search query string. Searches across OCR text, audio transcriptions, and UI elements.
+  
+  Example: `"authentication"`, `"meeting notes"`
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+  Maximum number of results to return per page.
+  
+  Range: 1-1000
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Number of results to skip for pagination.
+  
+  Use with `limit` for paginated results.
+</ParamField>
+
+<ParamField query="content_type" type="string" default="all">
+  Type of content to search for.
+  
+  Options:
+  - `all` - All content types
+  - `ocr` - Only screen text (OCR)
+  - `audio` - Only audio transcriptions
+  - `ui` - Only UI element text
+  - `audio+ui` - Audio and UI content
+  - `ocr+ui` - OCR and UI content
+  - `audio+ocr` - Audio and OCR content
+</ParamField>
+
+<ParamField query="start_time" type="string" format="date-time">
+  Filter results after this timestamp.
+  
+  Format: ISO 8601 date-time (e.g., `2024-03-08T10:00:00Z`)
+</ParamField>
+
+<ParamField query="end_time" type="string" format="date-time">
+  Filter results before this timestamp.
+  
+  Format: ISO 8601 date-time (e.g., `2024-03-08T18:00:00Z`)
+</ParamField>
+
+<ParamField query="app_name" type="string">
+  Filter by application name.
+  
+  Example: `"Chrome"`, `"Slack"`, `"VS Code"`
+</ParamField>
+
+<ParamField query="window_name" type="string">
+  Filter by window title.
+  
+  Example: `"GitHub - Pull Requests"`
+</ParamField>
+
+<ParamField query="browser_url" type="string">
+  Filter by browser URL (requires browser extension or accessibility access).
+  
+  Example: `"github.com"`, `"docs.screenpi.pe"`
+</ParamField>
+
+<ParamField query="include_frames" type="boolean" default="false">
+  Include base64-encoded frame images in the response.
+  
+  <Warning>Setting this to `true` significantly increases response size.</Warning>
+</ParamField>
+
+<ParamField query="frame_name" type="string">
+  Filter by frame name/identifier.
+</ParamField>
+
+<ParamField query="min_length" type="integer">
+  Minimum length of text content in characters.
+</ParamField>
+
+<ParamField query="max_length" type="integer">
+  Maximum length of text content in characters.
+</ParamField>
+
+<ParamField query="speaker_ids" type="string">
+  Comma-separated list of speaker IDs to filter audio content.
+  
+  Example: `"1,2,5"`
+</ParamField>
+
+<ParamField query="speaker_name" type="string">
+  Filter audio transcriptions by speaker name (case-insensitive partial match).
+  
+  Example: `"john"`
+</ParamField>
+
+<ParamField query="focused" type="boolean">
+  Filter by whether the window was focused.
+  
+  - `true` - Only focused windows
+  - `false` - Only unfocused windows
+</ParamField>
+
+<ParamField query="include_cloud" type="boolean" default="false">
+  Include cloud-synced data in search results.
+  
+  Requires cloud sync to be enabled.
+</ParamField>
+
+## Examples
+
+### Basic Search
+
+Search for recent content containing "authentication":
+
+```bash
+curl "http://localhost:3030/search?q=authentication&limit=20"
+```
+
+### Search by Application
+
+Find all content from Chrome in the last 7 days:
+
+```bash
+curl "http://localhost:3030/search?app_name=Chrome&start_time=2024-03-01T00:00:00Z&limit=50"
+```
+
+### Search Browser Activity
+
+Get all GitHub activity with screenshots:
+
+```bash
+curl "http://localhost:3030/search?browser_url=github.com&content_type=ocr&include_frames=true&limit=20"
+```
+
+### Search Audio Transcriptions
+
+Find meeting transcriptions from a specific speaker:
+
+```bash
+curl "http://localhost:3030/search?content_type=audio&speaker_name=john&start_time=2024-03-08T09:00:00Z&end_time=2024-03-08T17:00:00Z"
+```
+
+### Time Range Search
+
+Get all activity during work hours:
+
+```bash
+curl "http://localhost:3030/search?start_time=2024-03-08T09:00:00Z&end_time=2024-03-08T17:00:00Z&limit=100"
+```
+
+## Response
+
+<ResponseField name="data" type="array">
+  Array of content items matching the search criteria.
+  
+  <Expandable title="ContentItem">
+    <ResponseField name="type" type="string">
+      Type of content: `OCR`, `Audio`, `UI`, or `Input`
+    </ResponseField>
+    
+    <ResponseField name="content" type="object">
+      Content data (structure varies by type)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  Pagination information
+  
+  <Expandable title="properties">
+    <ResponseField name="limit" type="integer">
+      Number of results per page
+    </ResponseField>
+    
+    <ResponseField name="offset" type="integer">
+      Current offset
+    </ResponseField>
+    
+    <ResponseField name="total" type="integer">
+      Total number of matching results
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="cloud" type="object" optional>
+  Cloud search metadata (only present when cloud sync is available)
+  
+  <Expandable title="properties">
+    <ResponseField name="cloud_search_available" type="boolean">
+      Whether cloud search is available
+    </ResponseField>
+    
+    <ResponseField name="estimated_cloud_results" type="integer">
+      Estimated number of results in cloud
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### OCR Content
+
+```json
+{
+  "type": "OCR",
+  "content": {
+    "frame_id": 12345,
+    "text": "import React from 'react'",
+    "timestamp": "2024-03-08T14:30:00Z",
+    "file_path": "/path/to/frame.mp4",
+    "offset_index": 150,
+    "app_name": "VS Code",
+    "window_name": "main.tsx - myproject",
+    "tags": ["code", "typescript"],
+    "frame": null,
+    "browser_url": null,
+    "focused": true,
+    "device_name": "MacBook Pro"
+  }
+}
+```
+
+### Audio Content
+
+```json
+{
+  "type": "Audio",
+  "content": {
+    "chunk_id": 789,
+    "transcription": "Let's discuss the authentication implementation",
+    "timestamp": "2024-03-08T14:30:00Z",
+    "file_path": "/path/to/audio.mp4",
+    "offset_index": 45,
+    "tags": [],
+    "device_name": "MacBook Microphone",
+    "device_type": "Input",
+    "speaker": {
+      "id": 1,
+      "name": "John Doe",
+      "metadata": "{}"
+    },
+    "start_time": 0.0,
+    "end_time": 3.5
+  }
+}
+```
+
+### UI Content
+
+```json
+{
+  "type": "UI",
+  "content": {
+    "id": 456,
+    "text": "Submit Button",
+    "timestamp": "2024-03-08T14:30:00Z",
+    "app_name": "Safari",
+    "window_name": "Login Page",
+    "file_path": "/path/to/ui.json",
+    "offset_index": 23,
+    "browser_url": "https://example.com/login"
+  }
+}
+```
+
+## Response Example
+
+```json
+{
+  "data": [
+    {
+      "type": "OCR",
+      "content": {
+        "frame_id": 12345,
+        "text": "authentication code example",
+        "timestamp": "2024-03-08T14:30:00Z",
+        "app_name": "VS Code",
+        "window_name": "auth.ts",
+        "focused": true,
+        "device_name": "MacBook Pro"
+      }
+    },
+    {
+      "type": "Audio",
+      "content": {
+        "chunk_id": 789,
+        "transcription": "We need to implement authentication",
+        "timestamp": "2024-03-08T14:25:00Z",
+        "device_name": "Microphone",
+        "device_type": "Input",
+        "speaker": {
+          "id": 1,
+          "name": "John"
+        }
+      }
+    }
+  ],
+  "pagination": {
+    "limit": 20,
+    "offset": 0,
+    "total": 2
+  }
+}
+```
+
+## TypeScript SDK Example
+
+```typescript
+const githubActivity = await pipe.queryScreenpipe({
+  browserUrl: "github.com",
+  contentType: "ocr",
+  limit: 20,
+  includeFrames: true
+});
+```
+
+```typescript
+const searchResults = await pipe.queryScreenpipe({
+  q: "authentication",
+  browserUrl: "auth0.com",
+  appName: "Chrome",
+  contentType: "ocr",
+  startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  endTime: new Date().toISOString(),
+  limit: 50
+});
+```
+
+## Error Responses
+
+### 400 Bad Request
+
+Invalid parameters or malformed query:
+
+```json
+{
+  "error": "Invalid content_type parameter"
+}
+```
+
+### 500 Internal Server Error
+
+Database or server error:
+
+```json
+{
+  "error": "Failed to execute search query"
+}
+```
+
+## Performance Tips
+
+<Tip>
+  **Optimize Your Queries**:
+  - Use specific `content_type` filters to reduce search scope
+  - Add time range filters to limit the search window
+  - Set reasonable `limit` values (default 20 is optimal)
+  - Avoid `include_frames=true` unless necessary
+  - Use `app_name` or `browser_url` filters to narrow results
+</Tip>
+
+## Next Steps
+
+- Retrieve frame images using [frames endpoint](/api/frames)
+- Learn about [keyword search](/api/search-keyword) for advanced queries
+- Monitor API health with [health endpoint](/api/health)

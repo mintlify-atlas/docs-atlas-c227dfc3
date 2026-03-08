@@ -1,0 +1,336 @@
+---
+title: "Apple Intelligence — on-device daily summaries & auto reminders"
+sidebarTitle: "Apple Intelligence"
+description: "screenpipe uses Apple Intelligence (on-device Foundation Models) to generate daily summaries and automatically extract action items into Apple Reminders."
+icon: "apple"
+---
+
+screenpipe uses Apple's on-device Foundation Models to analyze your recorded activity — no data leaves your Mac. requires macOS 26+ with Apple Intelligence enabled on Apple Silicon.
+
+## what is Apple Intelligence?
+
+Apple Intelligence is Apple's on-device AI system that runs locally on your Mac. screenpipe integrates with it to:
+
+- generate daily summaries of your screen and audio activity
+- extract action items and create Apple Reminders automatically
+- analyze meetings and conversations
+- all processing happens on-device with zero cloud dependency
+
+```
+┌─────────────────────────────────────────┐
+│  screenpipe (records screen + audio)     │
+│              ↓                           │
+│  Apple Intelligence (on-device AI)       │
+│              ↓                           │
+│  summaries + action items + reminders    │
+└─────────────────────────────────────────┘
+```
+
+## requirements
+
+- **macOS 26+** (Tahoe) with Apple Intelligence enabled
+- **Apple Silicon** (M1, M2, M3, M4, or later)
+- screenpipe running on localhost:3030
+- Apple Intelligence enabled in System Settings
+
+<Note>
+if Apple Intelligence shows as "not available", check:
+- System Settings → Apple Intelligence & Siri → enable Apple Intelligence
+- your Mac is Apple Silicon (M1 or later)
+- macOS is version 26 or later
+</Note>
+
+## daily summaries
+
+screenpipe automatically generates a summary of your day using Apple Intelligence.
+
+### automatic summaries
+
+by default, screenpipe generates a summary at **6 PM daily** (when plugged in):
+
+<Steps>
+  <Step title="Automatic generation">
+    at 6 PM, screenpipe:
+    - fetches your audio transcriptions for the day
+    - sends them to Apple Intelligence (on-device)
+    - generates a structured summary
+    - caches it locally for instant access
+  </Step>
+
+  <Step title="View summary">
+    open screenpipe → **timeline** view
+    
+    the summary appears at the top with:
+    - **one-liner** - casual summary of your day
+    - **key moments** - up to 5 important events
+    - **action items** - tasks mentioned, ranked by urgency
+    - **people mentioned** - names and context
+  </Step>
+</Steps>
+
+### manual summaries
+
+generate a summary anytime:
+
+<Steps>
+  <Step title="Open timeline">
+    go to screenpipe → **timeline** view
+  </Step>
+
+  <Step title="Click Apple Intelligence icon">
+    click the Apple Intelligence icon in the timeline toolbar
+  </Step>
+
+  <Step title="Wait for generation">
+    the summary generates in a few seconds
+  </Step>
+</Steps>
+
+### summary structure
+
+```markdown
+## Your Day - March 8, 2026
+
+### One-liner
+"Productive coding day with team meeting about API migration"
+
+### Key Moments
+1. **09:00 - Morning standup**
+   - Discussed API migration timeline
+   - Assigned tasks for authentication refactor
+
+2. **10:30 - Deep work session**
+   - Implemented new authentication flow
+   - Fixed TypeScript type errors
+
+3. **14:00 - Code review**
+   - Reviewed Sarah's PR on dashboard redesign
+   - Suggested performance improvements
+
+4. **16:00 - Customer call**
+   - Discussed feature requests
+   - Took notes on billing integration needs
+
+### Action Items
+- [ ] Update API endpoint URLs (urgent)
+- [ ] Test new authentication flow
+- [ ] Review documentation updates
+- [ ] Follow up on billing integration requirements
+
+### People Mentioned
+- **Sarah** - working on dashboard redesign
+- **John** - completed authentication PR
+- **Customer: Acme Corp** - billing integration request
+```
+
+### configuration
+
+<Steps>
+  <Step title="Open settings">
+    screenpipe → **settings** → **connections**
+  </Step>
+
+  <Step title="Find Apple Intelligence card">
+    scroll to Apple Intelligence section
+  </Step>
+
+  <Step title="Toggle options">
+    - **enable daily summaries** - on/off
+    - **summary time** - when to generate (default: 6 PM)
+    - **audio only** - skip screen data, only use audio (default: on)
+  </Step>
+</Steps>
+
+## auto reminders
+
+screenpipe can scan your activity and automatically create action items in Apple Reminders.
+
+### setup
+
+<Steps>
+  <Step title="Open settings">
+    screenpipe → **settings** → **connections** → **Apple Intelligence**
+  </Step>
+
+  <Step title="Connect Apple Reminders">
+    click **"Connect Apple Reminders"**
+    
+    this grants screenpipe permission to create reminders.
+  </Step>
+
+  <Step title="Enable auto-scanning">
+    toggle on **auto-scanning**
+  </Step>
+
+  <Step title="Configure options">
+    - **scan interval** - how often to scan (default: 30 minutes)
+    - **audio only** - skip screen data (default: on)
+    - **custom prompt** - add instructions (optional)
+  </Step>
+</Steps>
+
+### how it works
+
+once enabled:
+
+1. **every 30 minutes**, screenpipe:
+   - scans your recent screen and/or audio activity
+   - sends it to Apple Intelligence (on-device)
+   - extracts action items
+
+2. **Apple Intelligence** identifies tasks like:
+   - "update the API endpoint URLs"
+   - "review Sarah's PR"
+   - "follow up with customer about billing"
+
+3. **creates reminders** in Apple Reminders app:
+   - list: **"Screenpipe"**
+   - auto-deduplicates (won't create duplicates)
+   - includes context from where it was mentioned
+
+### custom prompts
+
+add instructions to customize what gets extracted:
+
+```
+focus on coding tasks and engineering work
+ignore personal todos
+prioritize urgent items
+```
+
+or:
+
+```
+only extract action items from meetings
+ignore reminders about breaks or personal tasks
+```
+
+### manual scan
+
+scan on demand:
+
+<Steps>
+  <Step title="Open settings">
+    screenpipe → **settings** → **connections** → **Apple Intelligence**
+  </Step>
+
+  <Step title="Click scan now">
+    click **"scan now"** button
+  </Step>
+
+  <Step title="Wait for results">
+    scanning takes a few seconds. new reminders appear in Apple Reminders app.
+  </Step>
+</Steps>
+
+### viewing reminders
+
+open **Apple Reminders** app and check the **"Screenpipe"** list:
+
+```
+Screenpipe
+  ☐ Update API endpoint URLs (from meeting)
+  ☐ Review Sarah's PR on dashboard
+  ☐ Test new authentication flow
+  ☐ Follow up with Acme Corp about billing
+```
+
+each reminder includes context about where it was mentioned.
+
+## configuration options
+
+### daily summaries
+
+| option | description | default |
+|--------|-------------|---------|
+| **enable** | generate daily summaries | on |
+| **time** | when to generate (24-hour format) | 18:00 (6 PM) |
+| **audio only** | skip screen data, only use audio | on |
+| **include screenshots** | attach relevant screenshots | off |
+
+### auto reminders
+
+| option | description | default |
+|--------|-------------|---------|
+| **enable** | auto-scan and create reminders | off |
+| **interval** | scan every N minutes | 30 |
+| **audio only** | skip screen data | on |
+| **custom prompt** | instructions for extraction | none |
+| **deduplicate** | avoid duplicate reminders | on |
+
+## privacy & security
+
+**100% on-device:**
+- all Apple Intelligence processing happens on your Mac
+- no data sent to Apple's servers
+- no cloud dependency
+- works offline
+
+**you control:**
+- what data is analyzed (screen + audio, or audio only)
+- when summaries are generated
+- which reminders are created
+- all data stays on your machine
+
+**no telemetry:**
+- screenpipe doesn't track what you analyze
+- Apple doesn't see your screen data
+- all processing is local and private
+
+## vs Apple's built-in features
+
+how does screenpipe's Apple Intelligence integration compare?
+
+| feature | screenpipe | Apple Screen Time | Apple Notes |
+|---------|-----------|------------------|-------------|
+| **full text search** | ✅ OCR on every frame | ❌ app usage only | ❌ manual notes |
+| **audio transcription** | ✅ local Whisper | ❌ | ❌ |
+| **AI summaries** | ✅ daily with action items | ❌ | ❌ |
+| **auto reminders** | ✅ from screen + audio | ❌ | ❌ |
+| **API access** | ✅ full REST API | ❌ | ❌ |
+| **cross-platform** | ✅ macOS, Windows, Linux | ❌ Apple only | ❌ Apple only |
+| **on-device AI** | ✅ Apple Intelligence | ❌ | ✅ (for some features) |
+
+## troubleshooting
+
+**"Apple Intelligence not available"?**
+- ensure macOS 26+ (Tahoe) is installed
+- check you have Apple Silicon (M1 or later)
+- enable in System Settings → Apple Intelligence & Siri
+- restart screenpipe
+
+**summaries not generating?**
+- ensure Apple Intelligence is enabled
+- check screenpipe has audio data for the day
+- verify the scheduled time (default: 6 PM)
+- try generating manually to test
+
+**reminders not being created?**
+- grant Reminders permission in screenpipe settings
+- check System Settings → Privacy & Security → Automation
+- ensure screenpipe is allowed to control Reminders
+- try a manual scan to test
+
+**no action items extracted?**
+- ensure your audio/screen data contains actionable items
+- try adding a custom prompt with instructions
+- check the scan interval (might be too short)
+
+**summaries are empty?**
+- verify screenpipe has been recording audio
+- check audio transcription is working
+- ensure enough data exists for the time range
+
+**performance issues?**
+- Apple Intelligence uses Neural Engine - should be fast
+- if slow, check Activity Monitor for CPU/memory usage
+- try audio-only mode (faster)
+- reduce scan interval for reminders
+
+still stuck? [ask in our discord](https://discord.gg/screenpipe) — we can help troubleshoot Apple Intelligence issues.
+
+## resources
+
+- [Apple Intelligence overview](https://www.apple.com/apple-intelligence/)
+- [screenpipe API reference](/api/introduction)
+- [screenpipe pipes documentation](/pipes/overview)

@@ -1,0 +1,234 @@
+---
+title: "Cline - VS Code agent with screen memory"
+sidebarTitle: "Cline"
+description: "Connect screenpipe to Cline to give this autonomous VS Code agent access to your screen history and context."
+icon: "code"
+---
+
+[Cline](https://github.com/cline/cline) is an autonomous AI coding agent for VS Code with 30k+ GitHub stars. it supports MCP servers, so you can connect screenpipe to give Cline context about what you've been working on across all your apps.
+
+## setup
+
+<Steps>
+  <Step title="Install Cline">
+    install Cline from the [VS Code marketplace](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev)
+  </Step>
+
+  <Step title="Open Cline settings">
+    - open VS Code with Cline installed
+    - open Cline panel (sidebar icon)
+    - click the gear icon to open settings
+  </Step>
+
+  <Step title="Add screenpipe MCP server">
+    go to **MCP Servers** section and add:
+    
+    ```json
+    {
+      "mcpServers": {
+        "screenpipe": {
+          "command": "npx",
+          "args": ["-y", "screenpipe-mcp"]
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Reload MCP servers">
+    click the refresh icon to reload MCP servers
+  </Step>
+
+  <Step title="Test it">
+    ask Cline: *"what was I working on this morning?"*
+  </Step>
+</Steps>
+
+<Tip>
+ensure screenpipe is running on localhost:3030 before using Cline with screenpipe.
+</Tip>
+
+## usage
+
+once configured, Cline can search your screen history while coding:
+
+**recall documentation:**
+```
+> I was reading documentation about async/await patterns earlier,
+> find it and help me apply those patterns here
+```
+
+**find error messages:**
+```
+> what error messages have I seen in my terminal today?
+```
+
+**reference API responses:**
+```
+> find the API response format I was looking at in the browser
+> and use it to type this function
+```
+
+**meeting context:**
+```
+> what did we discuss about authentication in standup?
+> help me implement those changes
+```
+
+## plan mode with screenpipe
+
+Cline's "Plan" mode works great with screenpipe context:
+
+<Steps>
+  <Step title="Switch to Plan mode">
+    click "Plan" in Cline's interface
+  </Step>
+
+  <Step title="Ask for context">
+    ```
+    > I was researching authentication patterns earlier,
+    > find what I was looking at and plan how to implement it here
+    ```
+  </Step>
+
+  <Step title="Review the plan">
+    Cline will search your screen history and create a plan based on what you were working on
+  </Step>
+
+  <Step title="Execute">
+    switch to Act mode to execute the plan
+  </Step>
+</Steps>
+
+this workflow lets you leverage your entire work context, not just the current editor.
+
+## available tools
+
+screenpipe provides these tools to Cline via MCP:
+
+### search-content
+
+search screen OCR, audio transcriptions, and input events:
+
+- filter by content type (all, ocr, audio, input, accessibility)
+- time range filtering
+- app/window filtering
+- speaker filtering for audio
+- full-text search
+
+### export-video
+
+create video exports from screen recordings.
+
+### activity-summary
+
+get app usage and activity overview.
+
+### list-meetings
+
+list detected meetings with context.
+
+see [MCP server documentation](/integrations/mcp-server#available-tools) for detailed parameters.
+
+## example workflows
+
+**context-aware refactoring:**
+```
+user: I saw a better pattern for error handling in another codebase today, find it and apply it here
+
+Cline: [searches screenpipe, finds pattern, refactors code]
+```
+
+**API integration:**
+```
+user: find the API documentation I was reading about the /users endpoint and implement a client for it
+
+Cline: [searches screen history, finds docs, writes client code]
+```
+
+**debugging with history:**
+```
+user: there was a stack trace in my terminal earlier, find it and help me debug
+
+Cline: [searches screen history, finds error, provides solution]
+```
+
+**meeting-driven development:**
+```
+user: what features did we decide to build in yesterday's meeting? implement them
+
+Cline: [searches audio transcriptions, extracts requirements, writes code]
+```
+
+## tips for best results
+
+**be specific about what you're looking for:**
+```
+✅ "find the React component I was reading about this morning"
+✅ "what was the error message in my terminal 30 minutes ago"
+✅ "show me the API docs I had open in Chrome"
+
+❌ "find that thing" (too vague)
+```
+
+**mention the app when relevant:**
+```
+✅ "find what I was looking at in the browser"
+✅ "show me terminal output from earlier"
+✅ "what was I working on in VS Code yesterday"
+```
+
+**use time references:**
+```
+✅ "this morning"
+✅ "in the last hour"
+✅ "yesterday afternoon"
+✅ "during the standup meeting"
+```
+
+## Cline modes explained
+
+| mode | description | use with screenpipe |
+|------|-------------|-----------------|
+| **Act** | autonomous coding | ask Cline to find and implement based on screen context |
+| **Plan** | create implementation plan | research phase - gather context from screen history first |
+| **Ask** | Q&A mode | ask about what you've been working on |
+
+recommendation: use **Plan** mode with screenpipe to gather context, then switch to **Act** mode to implement.
+
+## troubleshooting
+
+**Cline not finding screenpipe?**
+- verify screenpipe is running: `curl http://localhost:3030/health`
+- check MCP settings in Cline show screenpipe
+- try refreshing MCP servers (refresh icon)
+- restart VS Code
+
+**queries returning no data?**
+- ensure screenpipe has screen recording permissions
+- check screenpipe has been running and recording
+- try a broader time range
+- verify the time range has data: `curl "http://localhost:3030/search?limit=1"`
+
+**MCP connection errors?**
+- ensure Node.js >= 18.0.0 is installed
+- try `npx clear-npx-cache` and restart Cline
+- check VS Code's Output panel for error messages (select "Cline" from dropdown)
+
+**Cline timing out?**
+- reduce the time range you're querying
+- be more specific with filters (app name, content type)
+- avoid requesting screenshots unless needed
+
+**permission errors on macOS?**
+- check System Settings > Privacy & Security > Screen Recording
+- ensure screenpipe app is listed and enabled
+- restart screenpipe after granting permissions
+
+still stuck? [ask in our discord](https://discord.gg/screenpipe) — we can help debug.
+
+## resources
+
+- [Cline GitHub repository](https://github.com/cline/cline)
+- [MCP server documentation](/integrations/mcp-server)
+- [screenpipe API reference](/api/introduction)

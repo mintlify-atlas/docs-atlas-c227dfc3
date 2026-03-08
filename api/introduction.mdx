@@ -1,0 +1,75 @@
+---
+title: "API Introduction"
+description: "Get started with the Screenpipe API"
+---
+
+# Screenpipe API
+
+Screenpipe is the context layer for AGI - a bridge between context-free AI and context-aware super intelligence.
+
+## Base URL
+
+The Screenpipe API runs locally on your machine:
+
+```
+http://localhost:3030
+```
+
+## Core Functionality
+
+Screenpipe provides several key capabilities:
+
+- **Context Retrieval**: Search through screen recordings and audio transcriptions
+- **Real-time Streams**: Stream OCR, UI elements, and audio transcriptions
+- **Device Management**: Control audio and video recording devices
+- **Pipes System**: Extend functionality with pluggable pipes
+
+## Most Common Endpoints
+
+The most commonly used endpoints are:
+
+1. [`/search`](/api/search) - Main endpoint for retrieving contextual data
+2. [`/health`](/api/health) - Health check endpoint
+3. [`/frames/{frame_id}`](/api/frames) - Retrieve frame images
+4. [`/pipes`](/api/pipes) - Manage pipes
+
+## Getting Started
+
+### Quick Example
+
+Here's a simple example to search for recent content:
+
+```bash
+curl "http://localhost:3030/search?limit=10&content_type=all"
+```
+
+### Response Format
+
+All responses are returned as JSON. Most endpoints follow this structure:
+
+```json
+{
+  "data": [...],
+  "pagination": {
+    "limit": 20,
+    "offset": 0,
+    "total": 100
+  }
+}
+```
+
+## Content Types
+
+Screenpipe captures and indexes multiple types of content:
+
+- **OCR**: Text extracted from screen captures
+- **Audio**: Transcribed audio from microphones and system audio
+- **UI**: UI element text from accessibility APIs
+- **Input**: User input events (clicks, keystrokes, clipboard)
+
+## Next Steps
+
+- Learn about [authentication and security](/api/authentication)
+- Explore the [search endpoint](/api/search) for querying your data
+- Check out [pipes management](/api/pipes) to extend functionality
+- Review [health monitoring](/api/health) for system status

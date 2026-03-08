@@ -1,0 +1,330 @@
+---
+title: "screenpipe MCP server - connect to Claude, Cursor & AI assistants"
+sidebarTitle: "MCP Server"
+description: "Set up screenpipe as an MCP server to give Claude, Cursor, and other AI assistants access to your screen history and context."
+icon: "server"
+---
+
+screenpipe provides an MCP (Model Context Protocol) server that lets AI assistants like Claude and Cursor search your screen recordings, audio transcriptions, and control your computer.
+
+## what is MCP?
+
+MCP (Model Context Protocol) is an open standard that allows AI assistants to connect to external data sources and tools. screenpipe implements MCP to expose your screen and audio history to compatible AI applications.
+
+```
+┌─────────────────────────────────────────────┐
+│  AI Assistant (Claude, Cursor, etc.)        │
+│             ↕ MCP Protocol                  │
+│  screenpipe MCP Server (localhost:3030)     │
+│             ↕ REST API                      │
+│  screenpipe Core (recording + storage)      │
+└─────────────────────────────────────────────┘
+```
+
+## quick setup
+
+the fastest way to get started:
+
+<Steps>
+  <Step title="Install screenpipe MCP">
+    ```bash
+    npx -y screenpipe-mcp
+    ```
+    
+    this downloads and runs the latest MCP server automatically.
+  </Step>
+
+  <Step title="Add to your AI assistant">
+    see the specific setup guides below for your application:
+    - [Claude Desktop](/integrations/claude-desktop)
+    - [Cursor](/integrations/cursor)
+    - [Cline](/integrations/cline)
+    - [Continue](/integrations/continue)
+  </Step>
+
+  <Step title="Start using it">
+    ask your AI assistant: *"what did I do in the last 5 minutes?"*
+  </Step>
+</Steps>
+
+<Tip>
+make sure screenpipe is running when you use MCP features.
+</Tip>
+
+## transport modes
+
+screenpipe MCP supports two transport modes:
+
+### stdio (standard input/output)
+
+for local AI assistants running on the same machine:
+
+```bash
+npx -y screenpipe-mcp
+```
+
+**use cases:**
+- Claude Desktop
+- Cursor
+- VS Code extensions (Cline, Continue)
+- local MCP clients
+
+### HTTP (network transport)
+
+for remote AI assistants or network access:
+
+```bash
+npx screenpipe-mcp-http --port 3031
+```
+
+**use cases:**
+- AI assistants on different machines
+- [OpenClaw](/integrations/opencode) running on VPS
+- team deployments
+- network testing
+
+<Expandable title="HTTP server options">
+
+**endpoints:**
+- `http://localhost:3031/mcp` - MCP protocol endpoint (POST for requests, GET for SSE stream)
+- `http://localhost:3031/health` - health check
+
+**flags:**
+| flag | description | default |
+|------|-------------|------|
+| `--port` | port for MCP HTTP server | 3031 |
+| `--screenpipe-port` | port where screenpipe API runs | 3030 |
+
+**connecting remote clients:**
+```json
+{
+  "mcpServers": {
+    "screenpipe": {
+      "url": "http://<your-ip>:3031/mcp"
+    }
+  }
+}
+```
+
+<Note>
+the HTTP server currently supports `search-content` only. stdio mode has the full tool set (export-video, list-meetings, activity-summary, search-elements, frame-context).
+</Note>
+
+</Expandable>
+
+## available tools
+
+when connected via MCP, AI assistants get access to these tools:
+
+### search-content
+
+search through recorded content with filtering:
+
+| parameter | type | description |
+|-----------|------|-------------|
+| `q` | string | search query (optional - omit to get recent content) |
+| `content_type` | string | `all`, `ocr`, `audio`, `input`, or `accessibility` (default: `all`) |
+| `limit` | integer | max results (default: 10) |
+| `offset` | integer | pagination offset (default: 0) |
+| `start_time` | string | ISO 8601 UTC start time (e.g., `2024-01-15T10:00:00Z`) |
+| `end_time` | string | ISO 8601 UTC end time |
+| `app_name` | string | filter by app (e.g., `Google Chrome`, `Slack`) |
+| `window_name` | string | filter by window title |
+| `min_length` | integer | minimum content length |
+| `max_length` | integer | maximum content length |
+| `include_frames` | boolean | include base64 screenshots (OCR only) |
+| `speaker_ids` | string | comma-separated speaker IDs for audio filtering (e.g., `1,2,3`) |
+| `speaker_name` | string | filter audio by speaker name (case-insensitive partial match) |
+
+**content types:**
+- `all` - everything (OCR + audio + accessibility + input)
+- `ocr` - screen text from screenshots (legacy)
+- `audio` - audio transcriptions from meetings/calls
+- `input` - user actions (clicks, keystrokes, clipboard, app switches)
+- `accessibility` - accessibility tree text (preferred for screen content)
+
+### export-video
+
+create video exports from screen recordings:
+
+| parameter | type | description |
+|-----------|------|-------------|
+| `start_time` | string | ISO 8601 UTC start time (required) |
+| `end_time` | string | ISO 8601 UTC end time (required) |
+| `fps` | number | frames per second (default: 1.0) |
+
+### activity-summary
+
+get lightweight activity overview for a time range:
+
+- app usage with active minutes and frame counts
+- recent accessibility texts
+- audio speaker summary
+
+### list-meetings
+
+list detected meetings with duration, app, and attendees (requires smart transcription mode).
+
+### search-elements
+
+search structured UI elements (accessibility tree nodes and OCR text blocks) - lighter than search-content for targeted lookups.
+
+### frame-context
+
+get accessibility text, parsed tree nodes, and extracted URLs for a specific frame.
+
+## example queries
+
+try these in any MCP-compatible AI assistant:
+
+```
+> search for any mentions of 'project' in my screen recordings
+
+> find audio transcriptions from the last hour
+
+> show me what was on my screen in VS Code yesterday
+
+> export a video of my screen from 10am to 11am today
+
+> find what John said in our meeting about the API
+
+> what did I type in Slack today? (uses content_type=input)
+
+> what did I copy to my clipboard recently? (uses content_type=input)
+
+> show me my app usage for the last 2 hours
+```
+
+## testing your setup
+
+use MCP Inspector to test your configuration:
+
+```bash
+npx @modelcontextprotocol/inspector npx screenpipe-mcp
+```
+
+this opens a web interface at `http://localhost:5173` where you can:
+- test all available tools
+- view tool schemas
+- send test queries
+- debug responses
+
+## manual configuration
+
+<CodeGroup>
+
+```json claude desktop (macOS)
+// ~/Library/Application Support/Claude/claude_desktop_config.json
+{
+  "mcpServers": {
+    "screenpipe": {
+      "command": "npx",
+      "args": ["-y", "screenpipe-mcp"]
+    }
+  }
+}
+```
+
+```json claude desktop (Windows)
+// %AppData%\Claude\claude_desktop_config.json
+{
+  "mcpServers": {
+    "screenpipe": {
+      "command": "npx",
+      "args": ["-y", "screenpipe-mcp"]
+    }
+  }
+}
+```
+
+```json cursor
+// .cursor/mcp.json in your project root
+{
+  "mcpServers": {
+    "screenpipe": {
+      "command": "npx",
+      "args": ["-y", "screenpipe-mcp"]
+    }
+  }
+}
+```
+
+```json cline (VS Code)
+// Cline settings → MCP Servers
+{
+  "mcpServers": {
+    "screenpipe": {
+      "command": "npx",
+      "args": ["-y", "screenpipe-mcp"]
+    }
+  }
+}
+```
+
+```json continue
+// ~/.continue/config.json
+{
+  "mcpServers": [
+    {
+      "name": "screenpipe",
+      "command": "npx",
+      "args": ["-y", "screenpipe-mcp"]
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+## building from source
+
+for development or custom builds:
+
+```bash
+git clone https://github.com/screenpipe/screenpipe
+cd screenpipe/crates/screenpipe-connect/screenpipe-mcp
+bun install
+bun run build
+```
+
+then point your MCP client to the built file:
+
+```json
+{
+  "mcpServers": {
+    "screenpipe": {
+      "command": "node",
+      "args": ["/absolute/path/to/screenpipe-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+## troubleshooting
+
+**MCP not connecting?**
+- ensure screenpipe is running: `curl http://localhost:3030/health`
+- restart your AI assistant after config changes
+- check logs in the AI assistant's developer console
+
+**no data returned?**
+- verify screenpipe has data: `curl "http://localhost:3030/search?limit=1"`
+- ensure screen recording permissions are granted
+- check the time range you're querying
+
+**macOS automation not working?**
+- grant accessibility permissions in System Settings > Privacy & Security > Accessibility
+- ensure screenpipe app is listed and enabled
+
+**queries timing out?**
+- reduce limit parameter
+- narrow the time range
+- avoid using `include_frames` unless needed (large responses)
+
+still stuck? [ask in our discord](https://discord.gg/screenpipe) — the community can help debug MCP issues.
+
+## resources
+
+- [MCP specification](https://modelcontextprotocol.io)
+- [screenpipe MCP source code](https://github.com/screenpipe/screenpipe/tree/main/crates/screenpipe-connect/screenpipe-mcp)
+- [MCP Inspector tool](https://github.com/modelcontextprotocol/inspector)

@@ -1,0 +1,164 @@
+---
+title: 'Screenpipe vs Rewind/Limitless'
+description: 'Detailed comparison between screenpipe and Rewind.ai (now Limitless)'
+---
+
+# Screenpipe vs Rewind/Limitless
+
+Rewind.ai (now Limitless) was one of the first AI memory tools. Here's how screenpipe compares:
+
+## Key Differences
+
+### Open Source vs Proprietary
+
+**screenpipe:**
+- 100% open source (MIT license)
+- Fully auditable codebase
+- Community-driven development
+- No vendor lock-in
+
+**Rewind/Limitless:**
+- Closed source proprietary software
+- No code transparency
+- Vendor-controlled roadmap
+
+### Data Storage & Privacy
+
+**screenpipe:**
+- 100% local storage by default
+- Your data never leaves your device
+- Optional encrypted sync (zero-knowledge)
+- No account required for core features
+
+**Rewind/Limitless:**
+- Cloud storage required
+- Data stored on their servers
+- Requires account and subscription
+
+<Warning>
+Rewind/Limitless requires cloud storage, meaning your screen and audio data is sent to their servers. With screenpipe, everything stays on your device by default.
+</Warning>
+
+### Platform Support
+
+| Feature | screenpipe | Rewind/Limitless |
+|---------|-----------|------------------|
+| macOS (Apple Silicon) | ✅ | ✅ |
+| macOS (Intel) | ✅ | ✅ |
+| Windows | ✅ | ✅ |
+| Linux | ✅ | ❌ |
+
+### Screen Capture
+
+**screenpipe:**
+- Multi-monitor support (all monitors)
+- Event-driven capture (only when things change)
+- ~5-10 GB storage per month
+- Accessibility tree + OCR fallback
+
+**Rewind/Limitless:**
+- Active window only
+- Continuous recording
+- Higher storage usage
+- OCR-based
+
+<Tip>
+screenpipe's event-driven capture reduces storage by 70-80% compared to continuous recording while maintaining complete context.
+</Tip>
+
+### Developer Features
+
+**screenpipe:**
+- Full REST API + JavaScript SDK
+- MCP server for AI assistants
+- Plugin system (Pipes - AI agents)
+- Raw SQL access to data
+- Custom integrations
+
+**Rewind/Limitless:**
+- Limited API access
+- No plugin system
+- Proprietary integrations only
+
+### AI Model Choice
+
+**screenpipe:**
+- Use any AI model (local or cloud)
+- Built-in Ollama support for 100% local AI
+- OpenAI, Anthropic, or custom models
+- No vendor lock-in
+
+**Rewind/Limitless:**
+- Proprietary AI models only
+- No model choice
+- Cloud-dependent
+
+### Team & Enterprise
+
+**screenpipe:**
+- Central config management
+- Per-pipe AI data permissions
+- Shared pipes deployment
+- MDM ready (Intune, SCCM)
+- Data stays on employee devices
+
+**Rewind/Limitless:**
+- Limited team features
+- No granular permissions
+- Data centralized in cloud
+
+## Feature Comparison Table
+
+| Feature | screenpipe | Rewind/Limitless |
+|---------|-----------|------------------|
+| Open source | ✅ MIT license | ❌ |
+| Platforms | macOS, Windows, Linux | macOS, Windows |
+| Data storage | 100% local | Cloud required |
+| Multi-monitor | ✅ All monitors | ❌ Active window only |
+| Audio transcription | ✅ Local Whisper | ✅ |
+| Developer API | ✅ Full REST API + SDK | Limited |
+| Plugin system | ✅ Pipes (AI agents) | ❌ |
+| AI model choice | Any (local or cloud) | Proprietary |
+| Team deployment | ✅ Central config, AI permissions | ❌ |
+| Pricing | One-time purchase | Subscription |
+
+## Pricing
+
+**screenpipe:**
+- Lifetime: $400 one-time
+- Lifetime + Pro 1 year: $600 one-time
+- Pro subscription: $39/month (optional)
+- No recurring costs for core features
+
+**Rewind/Limitless:**
+- Monthly subscription required
+- No one-time purchase option
+- Ongoing costs mandatory
+
+<Note>
+screenpipe offers a one-time lifetime purchase with no recurring subscription for core features. Rewind/Limitless requires an ongoing subscription.
+</Note>
+
+## When to Choose screenpipe
+
+- You want full control over your data
+- Privacy is a top priority
+- You need multi-monitor support
+- You want to build custom integrations
+- You prefer local-first AI
+- You want to avoid recurring subscriptions
+- You need team deployment with granular permissions
+- You want open source transparency
+
+## When to Consider Rewind/Limitless
+
+- You prefer a fully managed cloud solution
+- You don't need multi-monitor support
+- You're comfortable with proprietary software
+- You don't need custom integrations or API access
+
+---
+
+**Ready to try screenpipe?**
+
+[Download the desktop app](https://screenpi.pe/onboarding) or [join our Discord](https://discord.gg/screenpipe) for support.

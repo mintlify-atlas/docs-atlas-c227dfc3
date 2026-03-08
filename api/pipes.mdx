@@ -1,0 +1,609 @@
+---
+title: "Pipes"
+description: "Manage and control Screenpipe pipes for extending functionality"
+---
+
+# Pipes Management
+
+Pipes are pluggable extensions that process Screenpipe data in real-time. They can analyze content, trigger actions, send notifications, and more.
+
+## List All Pipes
+
+Get a list of all installed pipes with their current status. This endpoint re-scans the disk, so pipes installed externally (e.g., via CLI) will be detected.
+
+### Endpoint
+
+```
+GET /pipes
+```
+
+### Example
+
+```bash
+curl "http://localhost:3030/pipes"
+```
+
+### Response
+
+<ResponseField name="data" type="array">
+  Array of pipe objects with status and configuration
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "id": "pipe-meeting-notes",
+      "name": "Meeting Notes",
+      "description": "Automatically generates meeting notes from audio transcriptions",
+      "enabled": true,
+      "status": "running",
+      "last_run": "2024-03-08T14:30:00Z",
+      "config": {
+        "trigger": "realtime",
+        "interval": 300
+      }
+    },
+    {
+      "id": "pipe-slack-notifier",
+      "name": "Slack Notifier",
+      "description": "Sends notifications to Slack",
+      "enabled": false,
+      "status": "stopped",
+      "config": {
+        "webhook_url": "https://hooks.slack.com/..."
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Get Single Pipe
+
+Get detailed information about a specific pipe.
+
+### Endpoint
+
+```
+GET /pipes/{id}
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID of the pipe
+</ParamField>
+
+### Example
+
+```bash
+curl "http://localhost:3030/pipes/pipe-meeting-notes"
+```
+
+### Response
+
+```json
+{
+  "data": {
+    "id": "pipe-meeting-notes",
+    "name": "Meeting Notes",
+    "description": "Automatically generates meeting notes",
+    "enabled": true,
+    "status": "running",
+    "version": "1.0.0",
+    "author": "Screenpipe",
+    "config": {
+      "trigger": "realtime",
+      "interval": 300,
+      "output_dir": "~/Documents/meeting-notes"
+    },
+    "last_run": "2024-03-08T14:30:00Z",
+    "last_error": null
+  }
+}
+```
+
+---
+
+## Install Pipe
+
+Install a pipe from a URL or local path.
+
+### Endpoint
+
+```
+POST /pipes/install
+```
+
+### Request Body
+
+<ParamField body="source" type="string" required>
+  URL or local path to the pipe package
+  
+  Examples:
+  - `https://github.com/user/my-pipe`
+  - `file:///path/to/local/pipe`
+  - `npm:@screenpipe/pipe-name`
+</ParamField>
+
+### Example
+
+```bash
+curl -X POST "http://localhost:3030/pipes/install" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source": "https://github.com/screenpipe/pipe-meeting-notes"
+  }'
+```
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Whether installation was successful
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Name of the installed pipe
+</ResponseField>
+
+```json
+{
+  "success": true,
+  "name": "pipe-meeting-notes",
+  "message": "Pipe installed successfully"
+}
+```
+
+---
+
+## Delete Pipe
+
+Remove a pipe from the system.
+
+### Endpoint
+
+```
+DELETE /pipes/{id}
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID of the pipe to delete
+</ParamField>
+
+### Example
+
+```bash
+curl -X DELETE "http://localhost:3030/pipes/pipe-meeting-notes"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Pipe deleted successfully"
+}
+```
+
+---
+
+## Enable/Disable Pipe
+
+Enable or disable a pipe without uninstalling it.
+
+### Endpoint
+
+```
+POST /pipes/{id}/enable
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID of the pipe
+</ParamField>
+
+### Request Body
+
+<ParamField body="enabled" type="boolean" required>
+  Whether to enable (true) or disable (false) the pipe
+</ParamField>
+
+### Example - Enable
+
+```bash
+curl -X POST "http://localhost:3030/pipes/pipe-meeting-notes/enable" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true}'
+```
+
+### Example - Disable
+
+```bash
+curl -X POST "http://localhost:3030/pipes/pipe-meeting-notes/enable" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Pipe enabled successfully"
+}
+```
+
+---
+
+## Run Pipe Manually
+
+Trigger a manual execution of a pipe.
+
+### Endpoint
+
+```
+POST /pipes/{id}/run
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID of the pipe to run
+</ParamField>
+
+### Example
+
+```bash
+curl -X POST "http://localhost:3030/pipes/pipe-meeting-notes/run"
+```
+
+### Response
+
+```json
+{
+  "data": {
+    "execution_id": "exec-123456",
+    "started_at": "2024-03-08T14:30:00Z",
+    "status": "running"
+  }
+}
+```
+
+---
+
+## Stop Running Pipe
+
+Stop a currently running pipe.
+
+### Endpoint
+
+```
+POST /pipes/{id}/stop
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID of the pipe to stop
+</ParamField>
+
+### Example
+
+```bash
+curl -X POST "http://localhost:3030/pipes/pipe-meeting-notes/stop"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Pipe stopped successfully"
+}
+```
+
+---
+
+## Get Pipe Logs
+
+Retrieve recent logs from a pipe's execution (in-memory logs).
+
+### Endpoint
+
+```
+GET /pipes/{id}/logs
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID of the pipe
+</ParamField>
+
+### Example
+
+```bash
+curl "http://localhost:3030/pipes/pipe-meeting-notes/logs"
+```
+
+### Response
+
+```json
+{
+  "data": [
+    {
+      "timestamp": "2024-03-08T14:30:00Z",
+      "level": "info",
+      "message": "Processing meeting audio"
+    },
+    {
+      "timestamp": "2024-03-08T14:30:15Z",
+      "level": "info",
+      "message": "Generated 5 meeting notes"
+    },
+    {
+      "timestamp": "2024-03-08T14:30:20Z",
+      "level": "error",
+      "message": "Failed to send notification: network error"
+    }
+  ]
+}
+```
+
+---
+
+## Update Pipe Config
+
+Update configuration fields for a pipe.
+
+### Endpoint
+
+```
+POST /pipes/{id}/config
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID of the pipe
+</ParamField>
+
+### Request Body
+
+JSON object with configuration fields to update. The structure depends on the specific pipe.
+
+### Example
+
+```bash
+curl -X POST "http://localhost:3030/pipes/pipe-meeting-notes/config" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "interval": 600,
+    "output_dir": "~/Documents/notes",
+    "auto_summarize": true
+  }'
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Configuration updated successfully"
+}
+```
+
+---
+
+## Get Pipe Execution History
+
+Retrieve execution history from the database.
+
+### Endpoint
+
+```
+GET /pipes/{id}/executions
+```
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID of the pipe
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Number of executions to retrieve
+</ParamField>
+
+### Example
+
+```bash
+curl "http://localhost:3030/pipes/pipe-meeting-notes/executions?limit=10"
+```
+
+### Response
+
+```json
+{
+  "data": [
+    {
+      "execution_id": "exec-123456",
+      "started_at": "2024-03-08T14:30:00Z",
+      "completed_at": "2024-03-08T14:30:45Z",
+      "status": "success",
+      "duration_ms": 45000,
+      "items_processed": 120,
+      "error": null
+    },
+    {
+      "execution_id": "exec-123455",
+      "started_at": "2024-03-08T14:25:00Z",
+      "completed_at": "2024-03-08T14:25:30Z",
+      "status": "failed",
+      "duration_ms": 30000,
+      "items_processed": 0,
+      "error": "API rate limit exceeded"
+    }
+  ]
+}
+```
+
+---
+
+## Use Cases
+
+### Installing a Community Pipe
+
+```bash
+# 1. Install from GitHub
+curl -X POST "http://localhost:3030/pipes/install" \
+  -H "Content-Type: application/json" \
+  -d '{"source": "https://github.com/community/awesome-pipe"}'
+
+# 2. Configure the pipe
+curl -X POST "http://localhost:3030/pipes/awesome-pipe/config" \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "your-key", "interval": 300}'
+
+# 3. Enable and run
+curl -X POST "http://localhost:3030/pipes/awesome-pipe/enable" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true}'
+```
+
+### Monitoring Pipe Health
+
+```bash
+# Get current status
+curl "http://localhost:3030/pipes/pipe-meeting-notes"
+
+# Check recent logs
+curl "http://localhost:3030/pipes/pipe-meeting-notes/logs"
+
+# Review execution history
+curl "http://localhost:3030/pipes/pipe-meeting-notes/executions?limit=5"
+```
+
+### Troubleshooting a Failing Pipe
+
+```bash
+# 1. Stop the pipe
+curl -X POST "http://localhost:3030/pipes/my-pipe/stop"
+
+# 2. Check logs for errors
+curl "http://localhost:3030/pipes/my-pipe/logs"
+
+# 3. Update config if needed
+curl -X POST "http://localhost:3030/pipes/my-pipe/config" \
+  -H "Content-Type: application/json" \
+  -d '{"retry_count": 3, "timeout": 30000}'
+
+# 4. Run manually to test
+curl -X POST "http://localhost:3030/pipes/my-pipe/run"
+```
+
+---
+
+## Pipe Development
+
+### Creating Your Own Pipe
+
+Pipes are TypeScript/JavaScript modules that process Screenpipe data. Basic structure:
+
+```typescript
+import { Pipe } from "@screenpipe/types";
+
+export default class MyPipe implements Pipe {
+  name = "my-pipe";
+  description = "Does something awesome";
+  
+  async init(config: any) {
+    // Initialize your pipe
+  }
+  
+  async process(data: any) {
+    // Process Screenpipe data
+    // data contains OCR, audio, UI events, etc.
+    
+    // Example: Search for specific content
+    const results = await this.queryScreenpipe({
+      q: "important",
+      limit: 10
+    });
+    
+    // Do something with results
+    await this.sendNotification({
+      title: "Found important content",
+      body: `${results.data.length} items found`
+    });
+  }
+}
+```
+
+### Available Pipe APIs
+
+Pipes have access to:
+
+- `queryScreenpipe()` - Search Screenpipe data
+- `sendNotification()` - Send desktop notifications
+- `getConfig()` - Get pipe configuration
+- `log()` - Write to pipe logs
+- `setState()` / `getState()` - Persistent state management
+
+---
+
+## Tips for Using Pipes
+
+<Tip>
+  **Best Practices**:
+  - Start with disabled state and test manually before enabling
+  - Set reasonable intervals to avoid overwhelming your system
+  - Monitor execution history for performance issues
+  - Use logs to debug issues
+  - Keep pipes updated for security and features
+  - Review community pipes before installing
+</Tip>
+
+<Warning>
+  **Security Considerations**:
+  - Pipes have full access to your Screenpipe data
+  - Only install pipes from trusted sources
+  - Review pipe code before installation if possible
+  - Be cautious with pipes that make external API calls
+  - Pipes may send data to external services
+  - Check pipe permissions and data usage
+</Warning>
+
+---
+
+## Popular Community Pipes
+
+- **Meeting Notes** - Automatically generate meeting summaries
+- **Task Tracker** - Extract tasks from conversations
+- **Time Tracker** - Track time spent in applications
+- **Privacy Filter** - Automatically redact sensitive information
+- **Notion Sync** - Sync notes to Notion
+- **Slack Notifier** - Send updates to Slack
+- **Email Digest** - Daily email summaries
+- **Focus Mode** - Block distractions based on context
+
+<Info>
+  Browse more pipes at [https://github.com/screenpipe-community](https://github.com/screenpipe-community)
+</Info>
+
+---
+
+## Next Steps
+
+- Learn about the [search API](/api/search) used by pipes
+- Check [health monitoring](/api/health) for overall system status
+- Review [authentication](/api/authentication) for security best practices

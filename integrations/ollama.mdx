@@ -1,0 +1,249 @@
+---
+title: "Ollama — run AI locally with screenpipe"
+sidebarTitle: "Ollama"
+description: "Use Ollama to run AI models locally with screenpipe. Free, private, no API keys needed."
+icon: "brain"
+---
+
+[Ollama](https://ollama.com) lets you run AI models locally on your machine. screenpipe integrates natively with Ollama — no API keys, no cloud, completely private.
+
+## why use Ollama with screenpipe?
+
+- **100% local** - all AI processing happens on your machine
+- **no API costs** - free to use, no subscription required
+- **privacy** - your screen data never leaves your computer
+- **offline** - works without internet connection
+- **choice of models** - pick from dozens of open-source models
+- **no rate limits** - use as much as you want
+
+## setup
+
+<Steps>
+  <Step title="Install Ollama">
+    download and install from [ollama.com](https://ollama.com)
+    
+    **supported platforms:**
+    - macOS (Apple Silicon & Intel)
+    - Linux
+    - Windows (via WSL)
+  </Step>
+
+  <Step title="Pull a model">
+    download a model to use:
+    
+    ```bash
+    ollama run ministral-3
+    ```
+    
+    this downloads the model and starts Ollama.
+  </Step>
+
+  <Step title="Select Ollama in screenpipe">
+    - open the **screenpipe app**
+    - click the **AI preset selector** (top of chat/timeline)
+    - click **Ollama**
+    - pick your model from the dropdown
+  </Step>
+
+  <Step title="Start chatting">
+    ask screenpipe: *"what did I work on this morning?"*
+  </Step>
+</Steps>
+
+<Tip>
+screenpipe automatically detects Ollama running on `localhost:11434`.
+</Tip>
+
+## recommended models
+
+choose a model based on your hardware and needs:
+
+### fast & lightweight
+
+| model | size | RAM needed | best for |
+|-------|------|-----------|----------|
+| `ministral-3` | ~2 GB | 8 GB | fast, general use, great starting point |
+| `gemma3:4b` | ~3 GB | 8 GB | strong quality for size, good for summaries |
+| `qwen3:4b` | ~3 GB | 8 GB | multilingual, good reasoning |
+| `phi4` | ~3 GB | 8 GB | fast, great for code |
+
+### balanced
+
+| model | size | RAM needed | best for |
+|-------|------|-----------|----------|
+| `llama3.3:8b` | ~5 GB | 16 GB | strong all-around performance |
+| `deepseek-r1:8b` | ~5 GB | 16 GB | excellent reasoning |
+| `mistral:7b` | ~4 GB | 12 GB | good quality, widely used |
+
+### high quality
+
+| model | size | RAM needed | best for |
+|-------|------|-----------|----------|
+| `llama3.3:70b` | ~40 GB | 64 GB+ | best quality, needs high-end hardware |
+| `deepseek-r1:70b` | ~40 GB | 64 GB+ | best reasoning, needs high-end hardware |
+| `qwen2.5:32b` | ~20 GB | 32 GB+ | excellent quality, still usable on consumer hardware |
+
+### specialized
+
+| model | size | RAM needed | best for |
+|-------|------|-----------|----------|
+| `codellama:13b` | ~7 GB | 16 GB | code generation and review |
+| `llava` | ~5 GB | 16 GB | vision + language (can analyze screenshots) |
+| `mistral-openorca` | ~4 GB | 12 GB | instruction following |
+
+## pulling models
+
+download any model from [ollama.com/library](https://ollama.com/library):
+
+```bash
+# basic usage
+ollama pull <model-name>
+
+# examples
+ollama pull ministral-3
+ollama pull llama3.3:8b
+ollama pull deepseek-r1:8b
+
+# specific quantization (smaller = faster, larger = better quality)
+ollama pull llama3.3:8b-q4_0  # 4-bit quantization
+ollama pull llama3.3:8b-q8_0  # 8-bit quantization
+```
+
+### model quantization explained
+
+quantization reduces model size and speeds up inference:
+
+- `q4_0` - smallest, fastest, lower quality
+- `q5_0` - balanced
+- `q8_0` - larger, slower, better quality
+- default (no suffix) - recommended balanced version
+
+for most users, the default version is best.
+
+## using Ollama with screenpipe
+
+### in chat
+
+once configured, use Ollama in screenpipe's AI chat:
+
+```
+> what did I work on this morning?
+
+> summarize my meeting from 2pm today
+
+> find that documentation I was reading about React
+
+> which apps did I use most yesterday?
+```
+
+screenpipe queries your screen/audio history and sends context to Ollama running locally.
+
+### in pipes
+
+pipes (automations) can also use Ollama:
+
+1. go to **pipes** in screenpipe sidebar
+2. select a pipe (e.g., "day recap", "time tracking")
+3. in pipe settings, select your Ollama preset
+4. enable the pipe
+
+now your automations run completely local and private.
+
+## performance tips
+
+**choose the right model for your hardware:**
+```
+8 GB RAM → ministral-3, gemma3:4b, phi4
+16 GB RAM → llama3.3:8b, deepseek-r1:8b, mistral:7b
+32 GB+ RAM → qwen2.5:32b, larger models
+```
+
+**optimize for speed:**
+- use 4-bit quantized models (`q4_0`)
+- close other GPU-heavy applications
+- use smaller context windows (less screen history)
+
+**optimize for quality:**
+- use 8-bit or full precision models
+- use larger models (8b, 13b, or more)
+- give more context in queries
+
+**GPU acceleration:**
+- Ollama automatically uses GPU if available
+- NVIDIA GPUs: works out of the box
+- AMD GPUs: supported on Linux
+- Apple Silicon: uses Metal acceleration
+
+## troubleshooting
+
+**"ollama not detected"**
+- ensure Ollama is running: `ollama serve`
+- check it's responding: `curl http://localhost:11434/api/tags`
+- verify Ollama is installed: `ollama --version`
+
+**model not showing in dropdown?**
+- pull it first: `ollama pull ministral-3`
+- refresh screenpipe's model list
+- you can also type the model name manually
+
+**slow responses?**
+- try a smaller model (`ministral-3`, `phi4`)
+- reduce context window (query shorter time ranges)
+- close other GPU-heavy apps
+- ensure you have enough free RAM (model size + ~2 GB overhead)
+
+**out of memory errors?**
+- use a smaller model
+- use a quantized version (`q4_0`)
+- close other applications
+- check available RAM: model size + 2 GB minimum
+
+**model responses cut off?**
+- increase max tokens in Ollama settings
+- some models have built-in limits
+- try a different model
+
+**Ollama server crashes?**
+- check RAM usage (likely out of memory)
+- try a smaller model
+- restart Ollama: `pkill ollama && ollama serve`
+
+**can't connect to Ollama?**
+- verify port 11434 is not blocked
+- check Ollama is listening: `lsof -i :11434`
+- try restarting Ollama
+
+still stuck? [ask in our discord](https://discord.gg/screenpipe) — get model recommendations and troubleshooting help.
+
+## comparing models
+
+want to test which model works best for you?
+
+1. pull multiple models: `ollama pull ministral-3 gemma3:4b llama3.3:8b`
+2. try the same query with each model
+3. compare speed, quality, and RAM usage
+4. stick with the one that fits your needs
+
+## requirements
+
+- [Ollama](https://ollama.com) installed and running
+- at least one model pulled
+- screenpipe running
+- sufficient RAM (8 GB minimum, 16 GB+ recommended)
+
+## privacy & security
+
+- **100% local** - models run on your machine
+- **no telemetry** - Ollama doesn't send data anywhere
+- **no accounts** - no sign-up required
+- **offline** - works without internet after downloading models
+- **open source** - Ollama and models are open source
+
+your screen data and AI processing never leave your computer.
+
+## resources
+
+- [Ollama official site](https://ollama.com)
+- [Ollama model library](https://ollama.com/library)
+- [Ollama GitHub](https://github.com/ollama/ollama)
+- [screenpipe pipes documentation](/pipes/overview)

@@ -1,0 +1,364 @@
+---
+title: 'Frequently Asked Questions'
+description: 'Common questions about screenpipe pricing, privacy, storage, and platform support'
+---
+
+# Frequently Asked Questions
+
+Answers to the most common questions about screenpipe.
+
+## General
+
+<Accordion title="What is screenpipe?">
+screenpipe is an open source application that continuously captures your screen and audio, creating a searchable, AI-powered memory of everything you do on your computer. All data is stored locally on your device by default.
+
+Think of it as giving AI perfect memory of everything you've seen, heard, or done on your computer - so you can search, recall, and automate based on your actual work history.
+</Accordion>
+
+<Accordion title="Is screenpipe free?">
+The core engine is open source (MIT license) and free to inspect and modify. The desktop app requires a one-time lifetime purchase of $400.
+
+There are no recurring subscription costs required for core features. Optional Pro subscription ($39/month) adds cloud sync and priority support.
+</Accordion>
+
+<Accordion title="How is this different from Rewind/Limitless or Microsoft Recall?">
+Key differences:
+
+- **Open source**: Full transparency, no vendor lock-in
+- **Local-first**: Your data never leaves your device by default
+- **Multi-monitor**: Captures all monitors (not just active window)
+- **Developer API**: Full REST API and SDK for custom integrations
+- **Plugin system**: AI agents (Pipes) for automation
+- **Cross-platform**: Works on macOS, Windows, and Linux
+
+See our detailed comparisons:
+- [vs Rewind/Limitless](/comparison/vs-rewind)
+- [vs Microsoft Recall](/comparison/vs-recall)
+</Accordion>
+
+## Privacy & Security
+
+<Accordion title="Does screenpipe send my data to the cloud?">
+No. By default, all data is stored locally on your device in a SQLite database. Nothing is sent to external servers.
+
+You can optionally enable:
+- Cloud AI models (OpenAI, Anthropic) for better search
+- Encrypted sync between your devices (zero-knowledge encryption)
+
+But the core app works 100% offline with no cloud dependency.
+</Accordion>
+
+<Accordion title="Can I use screenpipe with fully local AI?">
+Yes! screenpipe has built-in support for Ollama, allowing you to run AI models completely locally:
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model
+ollama pull llama2
+```
+
+Then configure screenpipe to use your local Ollama endpoint. No data leaves your device.
+</Accordion>
+
+<Accordion title="Is the source code auditable?">
+Yes. screenpipe is 100% open source under the MIT license. You can:
+
+- View all code on [GitHub](https://github.com/screenpipe/screenpipe)
+- Audit security and privacy practices
+- Build from source
+- Contribute improvements
+- Fork for custom needs
+</Accordion>
+
+<Accordion title="What about sensitive data like passwords?">
+screenpipe captures whatever is visible on your screen, so it's important to configure exclusions:
+
+- **Exclude apps**: Block password managers, banking apps, etc.
+- **Exclude windows**: Filter by window title patterns
+- **Exclude URLs**: Skip specific websites
+- **Time restrictions**: Only capture during work hours
+
+All these settings are configurable in the app settings.
+</Accordion>
+
+<Accordion title="Can I delete my data?">
+Yes, you have full control:
+
+- Delete specific time ranges via the UI
+- Clear all data from settings
+- Delete the SQLite database file directly
+- Use the API to programmatically manage data
+
+Your data is stored in `~/.screenpipe/` (or Windows equivalent).
+</Accordion>
+
+## Storage & Performance
+
+<Accordion title="How much disk space does screenpipe use?">
+Typically **5-10 GB per month**.
+
+screenpipe uses event-driven capture - it only saves frames when something changes (app switch, click, typing, scroll). This reduces storage by 70-80% compared to continuous recording.
+
+Actual usage depends on:
+- Number of monitors
+- How actively you use your computer
+- Whether you enable audio recording
+- Capture quality settings
+</Accordion>
+
+<Accordion title="Does screenpipe slow down my computer?">
+No. Typical resource usage:
+
+- **CPU**: 5-10% on modern hardware
+- **RAM**: 0.5-3 GB
+- **Disk**: Minimal writes (event-driven)
+
+Event-driven capture means screenpipe only processes frames when something actually changes, keeping CPU usage low.
+</Accordion>
+
+<Accordion title="What are the minimum system requirements?">
+- **RAM**: 8 GB recommended (4 GB minimum)
+- **Storage**: ~10 GB free space to start
+- **CPU**: Any modern processor (2015+)
+- **OS**: macOS 10.15+, Windows 10+, or Linux
+
+screenpipe works on modest hardware thanks to event-driven capture.
+</Accordion>
+
+<Accordion title="How long can I keep data?">
+As long as you have disk space. screenpipe doesn't auto-delete old data.
+
+You can:
+- Keep years of history if you have storage
+- Set up automatic cleanup via Pipes
+- Manually archive or delete old data
+- Store data on external drives
+</Accordion>
+
+## Platform Support
+
+<Accordion title="What platforms are supported?">
+| Platform | Support | Installation |
+|----------|---------|-------------|
+| macOS (Apple Silicon) | ✅ Full | Native .dmg installer |
+| macOS (Intel) | ✅ Full | Native .dmg installer |
+| Windows 10/11 | ✅ Full | Native .exe installer |
+| Linux | ✅ Supported | Build from source |
+</Accordion>
+
+<Accordion title="Can I use screenpipe on multiple computers?">
+Yes! Options:
+
+1. **Install separately**: Each device has its own local data
+2. **Pro sync**: Cloud sync between devices (encrypted, $39/month)
+3. **Manual export**: Export/import data via API
+
+With Pro sync, you can search across all your devices from any device.
+</Accordion>
+
+<Accordion title="Does it work with multiple monitors?">
+Yes! screenpipe captures **all connected monitors** simultaneously.
+
+This is a key advantage over Rewind/Limitless (which only captures the active window).
+</Accordion>
+
+<Accordion title="Can I use it on Linux?">
+Yes. Linux support is available by building from source:
+
+```bash
+git clone https://github.com/screenpipe/screenpipe
+cd screenpipe
+cargo build --release
+```
+
+Linux support uses Tesseract for OCR when accessibility data isn't available.
+</Accordion>
+
+## Features
+
+<Accordion title="Does screenpipe record audio?">
+Yes. screenpipe can record:
+
+- **System audio**: What you hear (meetings, videos, music)
+- **Microphone**: What you say
+
+Audio is transcribed locally using OpenAI Whisper, making it fully searchable.
+
+You can enable/disable audio recording independently in settings.
+</Accordion>
+
+<Accordion title="How does text extraction work?">
+screenpipe uses a hybrid approach:
+
+1. **Accessibility tree** (primary): Extracts structured text from the OS (buttons, labels, text fields) - fast and accurate
+2. **OCR fallback**: When accessibility isn't available (remote desktops, games), uses:
+   - Apple Vision on macOS
+   - Windows native OCR
+   - Tesseract on Linux
+
+This gives you high accuracy with minimal CPU usage.
+</Accordion>
+
+<Accordion title="Can I search with natural language?">
+Yes! screenpipe supports:
+
+- **Keyword search**: Fast full-text search
+- **Semantic search**: Natural language queries using AI embeddings
+- **Filters**: By app, window title, URL, date range, content type
+
+Example: "Find that email about the Q4 budget from last week"
+</Accordion>
+
+<Accordion title="What are Pipes?">
+Pipes are scheduled AI agents defined as markdown files. Each pipe:
+
+- Contains a prompt and schedule
+- Can query your screen/audio data
+- Can call APIs and write files
+- Runs automatically in the background
+
+Built-in pipes:
+- Obsidian sync (auto journal)
+- Reminders (extract todos)
+- Idea tracker (surface insights)
+
+Create custom pipes by writing markdown in `~/.screenpipe/pipes/`.
+</Accordion>
+
+<Accordion title="Can I integrate with ChatGPT/Claude/Cursor?">
+Yes! screenpipe runs as an MCP server:
+
+```bash
+# Add to Claude Desktop
+claude mcp add screenpipe -- npx -y screenpipe-mcp
+```
+
+This allows AI assistants to:
+- Search your screen history
+- Get recent context
+- Access meeting transcriptions
+- Build context-aware responses
+
+Works with: Claude Desktop, Cursor, VS Code (Cline, Continue), and any MCP-compatible client.
+</Accordion>
+
+## Pricing
+
+<Accordion title="What does the lifetime license include?">
+The $400 lifetime purchase includes:
+
+- Desktop app for all platforms
+- All current features
+- All future updates forever
+- Multi-monitor support
+- Audio transcription
+- Full API access
+- Plugin system (Pipes)
+- Local AI support
+
+No recurring subscription required.
+</Accordion>
+
+<Accordion title="What's included in Pro?">
+Pro subscription ($39/month) adds:
+
+- **Cloud sync**: Sync data between devices (encrypted)
+- **Priority support**: Faster response times
+- **Pro AI models**: Access to premium AI capabilities
+
+Core features work without Pro - it's entirely optional.
+</Accordion>
+
+<Accordion title="Is there a free trial?">
+You can try the open source CLI version for free:
+
+```bash
+npx screenpipe@latest record
+```
+
+This gives you the core capture and search functionality to evaluate before purchasing.
+</Accordion>
+
+<Accordion title="What about team/enterprise pricing?">
+screenpipe Teams provides:
+
+- Central config management
+- Shared AI pipes
+- Per-pipe data permissions
+- Admin dashboard
+- MDM deployment (Intune, SCCM)
+- SSO/SAML (Enterprise)
+- Audit logs (Enterprise)
+
+Pricing is custom based on team size. Contact [sales](https://screenpi.pe/team) for details.
+</Accordion>
+
+## Teams & Enterprise
+
+<Accordion title="Can I deploy screenpipe to my team?">
+Yes. screenpipe Teams lets you:
+
+- Deploy capture settings to all employees
+- Share AI workflows (Pipes) team-wide
+- Control what AI can access with per-pipe permissions
+- Employees' data stays on their devices
+- Admin dashboard for management
+
+See [screenpi.pe/team](https://screenpi.pe/team) for details.
+</Accordion>
+
+<Accordion title="How do AI data permissions work?">
+Each pipe (AI agent) can have YAML frontmatter controlling access:
+
+```yaml
+allow-apps: ["Slack", "Zoom"]
+deny-windows: ["*password*", "*bank*"]
+allow-content-types: ["ocr", "audio"]
+time-range: "09:00-18:00"
+days: "Mon,Tue,Wed,Thu,Fri"
+allow-raw-sql: false
+```
+
+Enforced at three OS-level layers - not by prompting the AI. Even compromised agents can't access denied data.
+</Accordion>
+
+<Accordion title="Is screenpipe compliant with security standards?">
+screenpipe Teams Enterprise offers:
+
+- **SOC 2 ready**: Compliance framework support
+- **HIPAA ready**: Healthcare data protection
+- **Audit logs**: Complete activity tracking
+- **SSO/SAML**: Enterprise authentication
+- **MDM deployment**: Intune, SCCM, Robopack
+
+Contact sales for compliance documentation.
+</Accordion>
+
+## Troubleshooting
+
+<Accordion title="Where can I get help?">
+- **Documentation**: [docs.screenpi.pe](https://docs.screenpi.pe)
+- **Discord**: [discord.gg/screenpipe](https://discord.gg/screenpipe)
+- **GitHub**: [Issues](https://github.com/screenpipe/screenpipe/issues)
+- **Email**: louis@screenpi.pe
+
+For common issues, see our [troubleshooting guide](/resources/troubleshooting).
+</Accordion>
+
+<Accordion title="How do I report a bug?">
+1. Check [existing issues](https://github.com/screenpipe/screenpipe/issues)
+2. Open a new issue with:
+   - OS and version
+   - screenpipe version
+   - Steps to reproduce
+   - Logs from `~/.screenpipe/logs/`
+3. Join [Discord](https://discord.gg/screenpipe) for real-time help
+</Accordion>
+
+---
+
+**Still have questions?**
+
+Join our [Discord community](https://discord.gg/screenpipe) or check the [troubleshooting guide](/resources/troubleshooting).

@@ -1,0 +1,196 @@
+---
+title: REST API Overview
+description: Introduction to the Screenpipe REST API
+---
+
+The Screenpipe REST API provides programmatic access to all captured screen and audio data. The API runs locally on your machine and follows REST conventions with JSON request/response bodies.
+
+## Base URL
+
+By default, the Screenpipe server runs on:
+
+```
+http://localhost:3030
+```
+
+You can customize the port using the `--port` flag when starting Screenpipe:
+
+```bash
+screenpipe --port 3035
+```
+
+## Authentication
+
+The local API does not require authentication by default. All requests are made to `localhost` and are only accessible from your machine.
+
+<Warning>
+If you expose the API to a network, ensure you implement proper security measures as the API provides access to all your captured data.
+</Warning>
+
+## Response Format
+
+All API responses follow a consistent JSON structure:
+
+### Successful Response
+
+```json
+{
+  "data": [...],
+  "pagination": {
+    "limit": 20,
+    "offset": 0,
+    "total": 150
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Error message describing what went wrong",
+  "statusCode": 400
+}
+```
+
+## Common HTTP Status Codes
+
+| Code | Meaning |
+|------|----------|
+| `200` | Success |
+| `400` | Bad Request - Invalid parameters |
+| `404` | Not Found - Resource doesn't exist |
+| `500` | Internal Server Error |
+
+## Content Types
+
+Screenpipe captures and indexes multiple types of content:
+
+<ParamField path="contentType" type="string" default="all">
+  Filter results by content type:
+  - `all` - OCR + Audio + Accessibility text
+  - `ocr` - Screen text from screenshots
+  - `audio` - Transcribed speech
+  - `input` - User actions (clicks, keystrokes, clipboard)
+  - `accessibility` - Accessibility tree text
+</ParamField>
+
+## Pagination
+
+Most list endpoints support pagination using standard parameters:
+
+<ParamField path="limit" type="number" default="20">
+  Maximum number of results to return (max: 100)
+</ParamField>
+
+<ParamField path="offset" type="number" default="0">
+  Number of results to skip for pagination
+</ParamField>
+
+**Example:**
+
+```bash
+# Get first 20 results
+curl "http://localhost:3030/search?limit=20&offset=0"
+
+# Get next 20 results
+curl "http://localhost:3030/search?limit=20&offset=20"
+```
+
+## Time Filtering
+
+Filter results by time range using ISO 8601 timestamps:
+
+<ParamField path="start_time" type="string">
+  Filter results after this timestamp (ISO 8601 format)
+</ParamField>
+
+<ParamField path="end_time" type="string">
+  Filter results before this timestamp (ISO 8601 format)
+</ParamField>
+
+**Example:**
+
+```javascript
+const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+const now = new Date().toISOString();
+
+const response = await fetch(
+  `http://localhost:3030/search?start_time=${fiveMinutesAgo}&end_time=${now}`
+);
+```
+
+## Core Endpoints
+
+### Health Check
+
+```bash
+GET /health
+```
+
+Returns server health status and capture statistics.
+
+### Search
+
+```bash
+GET /search
+```
+
+Full-text search across all captured content. See [Search API](/api/introduction/search) for details.
+
+### Keyword Search
+
+```bash
+GET /search/keyword
+```
+
+Search for specific keywords with text positions and bounding boxes.
+
+### Frames
+
+```bash
+GET /frames/:frame_id
+```
+
+Retrieve screenshot frames and OCR data.
+
+### Audio Devices
+
+```bash
+GET /audio/list
+```
+
+List available audio input/output devices.
+
+### Monitors
+
+```bash
+GET /vision/list
+```
+
+List available displays and their configurations.
+
+## Rate Limiting
+
+The local API does not enforce rate limits. However, complex queries on large datasets may take time to process.
+
+## CORS
+
+CORS is enabled by default to allow web-based applications to access the API from `localhost`.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Search API" icon="magnifying-glass" href="/api/introduction/search">
+    Query your captured data
+  </Card>
+  <Card title="JavaScript SDK" icon="js" href="/developers/javascript-sdk">
+    Use the official Node.js SDK
+  </Card>
+  <Card title="Streaming" icon="wave-pulse" href="/api/introduction/streaming">
+    Real-time data streams
+  </Card>
+  <Card title="Frames API" icon="image" href="/api/introduction/frames">
+    Access screenshot frames
+  </Card>
+</CardGroup>

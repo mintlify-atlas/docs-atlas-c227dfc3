@@ -1,0 +1,238 @@
+---
+title: "Claude Desktop - AI assistant with screen memory"
+sidebarTitle: "Claude Desktop"
+description: "Connect screenpipe to Claude Desktop to give Claude access to your screen history, meetings, and app context."
+icon: "message-bot"
+---
+
+Claude Desktop can access your screenpipe recordings via MCP (Model Context Protocol), allowing Claude to search your screen history, recall information, and access meeting transcriptions.
+
+## one-click setup
+
+the easiest way:
+
+<Steps>
+  <Step title="Open screenpipe connections">
+    open the **screenpipe app** → **settings** → **connections**
+  </Step>
+
+  <Step title="Install extension">
+    click **"install extension"** in the Claude Desktop section
+  </Step>
+
+  <Step title="Confirm in Claude">
+    Claude Desktop will open and prompt you to confirm. click **install** — done!
+  </Step>
+
+  <Step title="Test it">
+    try asking Claude: *"what did I do in the last 5 minutes?"*
+  </Step>
+</Steps>
+
+<Tip>
+make sure screenpipe is running when you use Claude with screenpipe features.
+</Tip>
+
+## manual setup
+
+if the one-click method doesn't work, you can configure manually:
+
+<CodeGroup>
+
+```json macOS
+// ~/Library/Application Support/Claude/claude_desktop_config.json
+{
+  "mcpServers": {
+    "screenpipe": {
+      "command": "npx",
+      "args": ["-y", "screenpipe-mcp"]
+    }
+  }
+}
+```
+
+```json Windows
+// %AppData%\Claude\claude_desktop_config.json
+{
+  "mcpServers": {
+    "screenpipe": {
+      "command": "npx",
+      "args": ["-y", "screenpipe-mcp"]
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+after editing the config file:
+1. save the file
+2. **restart Claude Desktop** (important!)
+3. look for the MCP indicator in Claude's interface
+
+## what you can do
+
+once connected, Claude can:
+
+**search your screen history:**
+```
+> what was I working on this morning?
+
+> find that documentation page I was reading about React hooks
+
+> show me what was on my screen in Chrome yesterday afternoon
+```
+
+**access meeting transcriptions:**
+```
+> what did we discuss in the standup about the API?
+
+> find what John said in our meeting about the database migration
+
+> summarize my last Zoom call
+```
+
+**recall clipboard and inputs:**
+```
+> what did I copy to my clipboard recently?
+
+> show me what I typed in Slack today
+
+> which apps did I switch between most this morning?
+```
+
+**export screen recordings:**
+```
+> export a video of my screen from 2-3pm today
+
+> create a video of my screen during the meeting
+```
+
+## available tools
+
+Claude gets access to these screenpipe tools via MCP:
+
+### search-content
+
+search screen OCR, audio transcriptions, and input events with filters:
+
+- time range (start_time, end_time)
+- content type (all, ocr, audio, input, accessibility)
+- app/window filtering
+- speaker filtering for audio
+- pagination support
+
+### export-video
+
+create MP4 videos from screen recordings for specific time ranges.
+
+### activity-summary
+
+get app usage statistics and activity overview for a time range.
+
+### list-meetings
+
+list detected meetings with duration, app, and attendees.
+
+### search-elements
+
+search structured UI elements (lighter than search-content).
+
+### frame-context
+
+get detailed context for a specific frame including accessibility tree and URLs.
+
+see the [MCP server documentation](/integrations/mcp-server#available-tools) for detailed parameter reference.
+
+## example workflows
+
+**context-aware research:**
+```
+user: I was researching kubernetes networking earlier, what were the key concepts?
+
+Claude: [searches screenpipe for kubernetes content, summarizes findings]
+```
+
+**meeting follow-up:**
+```
+user: create a summary of what we discussed about the database migration in today's meeting
+
+Claude: [searches audio transcriptions, generates summary with action items]
+```
+
+**code review with context:**
+```
+user: I saw an error message earlier in my terminal, help me debug it
+
+Claude: [searches screen history, finds error, provides solution]
+```
+
+**time tracking:**
+```
+user: how much time did I spend in VS Code today?
+
+Claude: [uses activity-summary to analyze app usage]
+```
+
+## tips for best results
+
+**be specific with time ranges:**
+```
+✅ "what did I work on this morning"
+✅ "find my meeting notes from yesterday afternoon"
+✅ "show me what I was doing between 2-3pm"
+
+❌ "what have I been working on" (too vague)
+```
+
+**mention the app when relevant:**
+```
+✅ "what was I looking at in Chrome"
+✅ "show me my Slack messages from today"
+✅ "what code was I editing in VS Code"
+```
+
+**for meetings, mention audio:**
+```
+✅ "what was said in my last meeting"
+✅ "find audio transcriptions from the standup"
+✅ "who spoke in my Zoom call this morning"
+```
+
+## privacy & data
+
+- all data stays local on your machine
+- Claude only accesses screenpipe via localhost (no external access)
+- you can disable the MCP connection anytime by removing it from config
+- screenpipe never sends data to Anthropic's servers
+
+## troubleshooting
+
+**MCP not connecting?**
+- verify screenpipe is running: `curl http://localhost:3030/health`
+- restart Claude Desktop after config changes
+- check for the MCP indicator in Claude's interface (should show "screenpipe")
+
+**Claude says "no data found"?**
+- ensure screenpipe has been running and recording
+- check you have screen recording permissions granted
+- try a broader time range
+
+**queries returning errors?**
+- update to latest screenpipe version
+- ensure port 3030 is not blocked
+- check screenpipe logs for errors
+
+**configuration file not found?**
+- create the directory if it doesn't exist:
+  - macOS: `mkdir -p ~/Library/Application\ Support/Claude`
+  - Windows: directory should exist after Claude installation
+- create the `claude_desktop_config.json` file manually
+
+still stuck? [ask in our discord](https://discord.gg/screenpipe) — we can help debug setup issues.
+
+## resources
+
+- [MCP server documentation](/integrations/mcp-server)
+- [screenpipe API reference](/api/introduction)
+- [Claude Desktop](https://claude.ai/download)

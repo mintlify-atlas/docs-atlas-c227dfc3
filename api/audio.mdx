@@ -1,0 +1,458 @@
+---
+title: "Audio"
+description: "Manage audio devices and control audio recording"
+---
+
+# Audio Management
+
+The audio endpoints allow you to manage audio devices, control recording, and monitor audio pipeline health.
+
+## List Audio Devices
+
+Get a list of all available audio input and output devices.
+
+### Endpoint
+
+```
+GET /audio/list
+```
+
+### Example
+
+```bash
+curl "http://localhost:3030/audio/list"
+```
+
+### Response
+
+Returns an array of audio devices:
+
+<ResponseField name="name" type="string">
+  Name of the audio device
+</ResponseField>
+
+<ResponseField name="is_default" type="boolean">
+  Whether this is the default device
+</ResponseField>
+
+### Example Response
+
+```json
+[
+  {
+    "name": "MacBook Pro Microphone",
+    "is_default": true
+  },
+  {
+    "name": "External USB Microphone",
+    "is_default": false
+  },
+  {
+    "name": "System Audio (Output)",
+    "is_default": false
+  }
+]
+```
+
+---
+
+## Start Audio Recording
+
+Start the audio processing pipeline to begin recording and transcribing.
+
+### Endpoint
+
+```
+POST /audio/start
+```
+
+### Example
+
+```bash
+curl -X POST "http://localhost:3030/audio/start"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Audio recording started"
+}
+```
+
+---
+
+## Stop Audio Recording
+
+Stop the audio processing pipeline.
+
+### Endpoint
+
+```
+POST /audio/stop
+```
+
+### Example
+
+```bash
+curl -X POST "http://localhost:3030/audio/stop"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Audio recording stopped"
+}
+```
+
+---
+
+## Start Specific Audio Device
+
+Start recording from a specific audio device.
+
+### Endpoint
+
+```
+POST /audio/device/start
+```
+
+### Request Body
+
+<ParamField body="device_name" type="string" required>
+  Name of the audio device to start
+</ParamField>
+
+### Example
+
+```bash
+curl -X POST "http://localhost:3030/audio/device/start" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "device_name": "External USB Microphone"
+  }'
+```
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Whether the device was started successfully
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Status message
+</ResponseField>
+
+```json
+{
+  "success": true,
+  "message": "Device started successfully"
+}
+```
+
+---
+
+## Stop Specific Audio Device
+
+Stop recording from a specific audio device.
+
+### Endpoint
+
+```
+POST /audio/device/stop
+```
+
+### Request Body
+
+<ParamField body="device_name" type="string" required>
+  Name of the audio device to stop
+</ParamField>
+
+### Example
+
+```bash
+curl -X POST "http://localhost:3030/audio/device/stop" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "device_name": "External USB Microphone"
+  }'
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Device stopped successfully"
+}
+```
+
+---
+
+## Get Audio Pipeline Metrics
+
+Get real-time metrics about the audio processing pipeline.
+
+### Endpoint
+
+```
+GET /audio/metrics
+```
+
+### Example
+
+```bash
+curl "http://localhost:3030/audio/metrics"
+```
+
+### Response
+
+Returns detailed audio pipeline metrics:
+
+<ResponseField name="uptime_secs" type="number">
+  Pipeline uptime in seconds
+</ResponseField>
+
+<ResponseField name="chunks_sent" type="integer">
+  Number of audio chunks sent for processing
+</ResponseField>
+
+<ResponseField name="chunks_channel_full" type="integer">
+  Number of times the channel was full
+</ResponseField>
+
+<ResponseField name="stream_timeouts" type="integer">
+  Number of stream timeout events
+</ResponseField>
+
+<ResponseField name="vad_passed" type="integer">
+  Voice activity detection: chunks with speech
+</ResponseField>
+
+<ResponseField name="vad_rejected" type="integer">
+  Voice activity detection: chunks without speech
+</ResponseField>
+
+<ResponseField name="vad_passthrough_rate" type="number">
+  Percentage of chunks passing VAD
+</ResponseField>
+
+<ResponseField name="avg_speech_ratio" type="number">
+  Average ratio of speech in audio chunks
+</ResponseField>
+
+<ResponseField name="transcriptions_completed" type="integer">
+  Number of successful transcriptions
+</ResponseField>
+
+<ResponseField name="transcriptions_empty" type="integer">
+  Number of empty transcriptions
+</ResponseField>
+
+<ResponseField name="transcription_errors" type="integer">
+  Number of transcription errors
+</ResponseField>
+
+<ResponseField name="db_inserted" type="integer">
+  Number of transcriptions inserted into database
+</ResponseField>
+
+<ResponseField name="total_words" type="integer">
+  Total words transcribed
+</ResponseField>
+
+<ResponseField name="words_per_minute" type="number">
+  Average words per minute
+</ResponseField>
+
+<ResponseField name="transcription_mode" type="string" optional>
+  Current transcription mode
+</ResponseField>
+
+<ResponseField name="transcription_paused" type="boolean" optional>
+  Whether transcription is paused
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "uptime_secs": 3600.5,
+  "chunks_sent": 1500,
+  "chunks_channel_full": 2,
+  "stream_timeouts": 0,
+  "vad_passed": 450,
+  "vad_rejected": 1050,
+  "vad_passthrough_rate": 0.3,
+  "avg_speech_ratio": 0.65,
+  "transcriptions_completed": 420,
+  "transcriptions_empty": 30,
+  "transcription_errors": 5,
+  "db_inserted": 415,
+  "total_words": 12500,
+  "words_per_minute": 208.33,
+  "transcription_mode": "streaming",
+  "transcription_paused": false,
+  "segments_deferred": 0,
+  "segments_batch_processed": 100,
+  "batch_paused_reason": null
+}
+```
+
+---
+
+## Speaker Management
+
+Screenpipe automatically identifies different speakers in audio recordings. You can manage speakers through these endpoints:
+
+### Search for Audio by Speaker
+
+Use the main [search endpoint](/api/search) with speaker filters:
+
+```bash
+curl "http://localhost:3030/search?content_type=audio&speaker_name=john&limit=20"
+```
+
+Or filter by specific speaker IDs:
+
+```bash
+curl "http://localhost:3030/search?content_type=audio&speaker_ids=1,2,5&limit=20"
+```
+
+---
+
+## Use Cases
+
+### Device Setup
+
+1. List available devices
+2. Start recording from preferred device
+3. Monitor metrics to ensure it's working
+
+```bash
+# List devices
+curl "http://localhost:3030/audio/list"
+
+# Start specific device
+curl -X POST "http://localhost:3030/audio/device/start" \
+  -H "Content-Type: application/json" \
+  -d '{"device_name": "External USB Microphone"}'
+
+# Check metrics
+curl "http://localhost:3030/audio/metrics"
+```
+
+### Meeting Recording
+
+1. Start audio before meeting
+2. Stop after meeting ends
+3. Search transcriptions with time filters
+
+```bash
+# Start recording
+curl -X POST "http://localhost:3030/audio/start"
+
+# After meeting, stop recording
+curl -X POST "http://localhost:3030/audio/stop"
+
+# Search meeting content
+curl "http://localhost:3030/search?content_type=audio&start_time=2024-03-08T14:00:00Z&end_time=2024-03-08T15:00:00Z"
+```
+
+### Multi-Device Recording
+
+Record from both microphone and system audio simultaneously:
+
+```bash
+# Start microphone
+curl -X POST "http://localhost:3030/audio/device/start" \
+  -H "Content-Type: application/json" \
+  -d '{"device_name": "MacBook Pro Microphone"}'
+
+# Start system audio
+curl -X POST "http://localhost:3030/audio/device/start" \
+  -H "Content-Type: application/json" \
+  -d '{"device_name": "System Audio (Output)"}'
+```
+
+---
+
+## Audio Pipeline Tips
+
+<Tip>
+  **Optimize Audio Recording**:
+  - Use high-quality microphones for better transcription accuracy
+  - Monitor `vad_passthrough_rate` - low rates indicate mostly silence
+  - Check `transcription_errors` - high counts may indicate audio issues
+  - Review `words_per_minute` to verify realistic transcription rates
+  - Use speaker filters when searching to find specific conversations
+</Tip>
+
+<Warning>
+  **Privacy Considerations**:
+  - Audio recording captures all sound from the selected device
+  - System audio recording captures all computer audio output
+  - Be mindful of privacy when recording meetings or calls
+  - Consider stopping recording during sensitive conversations
+  - Use speaker identification to filter out unwanted recordings
+</Warning>
+
+---
+
+## Troubleshooting
+
+### No Audio Devices Found
+
+```bash
+# Check permissions
+# On macOS: System Preferences > Security & Privacy > Microphone
+# On Linux: Check PulseAudio/ALSA configuration
+# On Windows: Check device drivers
+
+# List devices
+curl "http://localhost:3030/audio/list"
+```
+
+### Poor Transcription Quality
+
+1. Check audio metrics for high error rates
+2. Verify microphone quality and positioning
+3. Reduce background noise
+4. Check VAD settings
+
+```bash
+curl "http://localhost:3030/audio/metrics"
+# Look for high transcription_errors
+# Check avg_speech_ratio (should be > 0.5 for good audio)
+```
+
+### Device Already in Use
+
+If a device fails to start:
+
+1. Stop the device first
+2. Check if another application is using it
+3. Restart the audio pipeline
+
+```bash
+# Stop device
+curl -X POST "http://localhost:3030/audio/device/stop" \
+  -H "Content-Type: application/json" \
+  -d '{"device_name": "MacBook Pro Microphone"}'
+
+# Wait a moment, then start again
+curl -X POST "http://localhost:3030/audio/device/start" \
+  -H "Content-Type: application/json" \
+  -d '{"device_name": "MacBook Pro Microphone"}'
+```
+
+---
+
+## Next Steps
+
+- Search audio transcriptions with the [search endpoint](/api/search)
+- Monitor overall system health with [health endpoint](/api/health)
+- Learn about [pipes](/api/pipes) to process audio in real-time

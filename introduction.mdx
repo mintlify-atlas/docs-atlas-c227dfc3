@@ -1,0 +1,153 @@
+---
+title: Introduction
+description: AI memory for your screen - Record, search, and automate everything you do on your computer
+---
+
+## What is screenpipe?
+
+screenpipe turns your computer into a personal AI that knows everything you've done. It continuously captures your screen and audio, creating a searchable, AI-powered memory of your digital work. All data is stored locally on your device.
+
+```
+┌─────────────────────────────────────────┐
+│  screen + audio → local storage → ai   │
+└─────────────────────────────────────────┘
+```
+
+<CardGroup cols={2}>
+  <Card title="Remember Everything" icon="brain">
+    Never forget what you saw, heard, or did on your computer
+  </Card>
+  <Card title="Search with AI" icon="magnifying-glass">
+    Find anything using natural language queries
+  </Card>
+  <Card title="100% Local" icon="lock">
+    Your data never leaves your machine
+  </Card>
+  <Card title="Open Source" icon="code">
+    Inspect, modify, and own the code (MIT license)
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Event-Driven Screen Capture
+
+Instead of recording every second, screenpipe listens for meaningful events—app switches, clicks, typing pauses, scrolling—and captures a screenshot only when something actually changes. Each capture pairs a screenshot with the accessibility tree (the structured text the OS already knows about: buttons, labels, text fields).
+
+<Info>
+  If accessibility data isn't available (e.g., remote desktops, games), screenpipe falls back to OCR. This gives you maximum data quality with minimal CPU and storage.
+</Info>
+
+### Audio Transcription
+
+- Captures system audio (what you hear) and microphone input (what you say)
+- Real-time speech-to-text using OpenAI Whisper running locally on your device
+- Speaker identification and diarization
+- Works with any audio source—Zoom, Google Meet, Teams, or any other application
+
+### AI-Powered Search
+
+- Natural language search across all OCR text and audio transcriptions
+- Filter by application name, window title, browser URL, date range
+- Semantic search using embeddings
+- Returns screenshots and audio clips alongside text results
+
+### Timeline View
+
+- Visual timeline of your entire screen history
+- Scroll through your day like a DVR
+- Click any moment to see the full screenshot and extracted text
+- Play back audio from any time period
+
+## Who Should Use screenpipe?
+
+screenpipe is designed for:
+
+<CardGroup cols={2}>
+  <Card title="Knowledge Workers" icon="briefcase">
+    Recall anything you've seen or heard on your computer
+  </Card>
+  <Card title="Developers" icon="code">
+    Give AI coding assistants context about what you're working on
+  </Card>
+  <Card title="Researchers" icon="flask">
+    Search through large volumes of screen-based information
+  </Card>
+  <Card title="People with ADHD" icon="brain">
+    Never lose track of tabs, documents, and conversations
+  </Card>
+  <Card title="Remote Workers" icon="laptop">
+    Automatic meeting transcription and notes
+  </Card>
+  <Card title="Teams & Enterprises" icon="users">
+    Deploy AI across your organization with deterministic data permissions
+  </Card>
+</CardGroup>
+
+## Performance & Resource Usage
+
+screenpipe is designed to run 24/7 in the background with minimal impact:
+
+| Metric | Value |
+|--------|-------|
+| CPU usage | 5-10% (typical) |
+| RAM usage | 0.5-3 GB |
+| Storage | ~20 GB/month (~300 MB per 8-hour day) |
+| Network | Works completely offline |
+
+<Note>
+  Event-driven capture dramatically reduces storage compared to continuous recording—only capturing frames when something changes saves ~90% disk space.
+</Note>
+
+## Privacy & Security
+
+<CardGroup cols={2}>
+  <Card title="100% Local by Default" icon="shield">
+    All data stored on your device in a local SQLite database
+  </Card>
+  <Card title="Open Source" icon="code-branch">
+    MIT licensed, fully auditable codebase
+  </Card>
+  <Card title="Local AI Support" icon="microchip">
+    Use Ollama or any local model—no data sent to the cloud
+  </Card>
+  <Card title="No Account Required" icon="user-slash">
+    Core application works without any sign-up
+  </Card>
+</CardGroup>
+
+- **You own your data**: Export, delete, or back up at any time
+- **Optional encrypted sync**: End-to-end encrypted sync between devices (zero-knowledge encryption)
+- **AI data permissions**: Per-pipe YAML-based access control—deterministic enforcement at the OS level
+
+## How screenpipe Compares
+
+screenpipe is the leading open source alternative to Rewind.ai (now Limitless), Microsoft Recall, Granola, and Otter.ai.
+
+| Feature | screenpipe | Rewind/Limitless | Microsoft Recall | Granola |
+|---------|-----------|------------------|------------------|--------|
+| Open source | ✅ MIT license | ❌ | ❌ | ❌ |
+| Platforms | macOS, Windows, Linux | macOS, Windows | Windows only | macOS only |
+| Data storage | 100% local | Cloud required | Local | Cloud |
+| Multi-monitor | ✅ All monitors | ❌ Active window only | ✅ | ❌ Meetings only |
+| Audio transcription | ✅ Local Whisper | ✅ | ❌ | ✅ Cloud |
+| Developer API | ✅ Full REST API + SDK | Limited | ❌ | ❌ |
+| Plugin system | ✅ Pipes (AI agents) | ❌ | ❌ | ❌ |
+| AI model choice | Any (local or cloud) | Proprietary | Microsoft AI | Proprietary |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get screenpipe running in under 5 minutes
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed installation instructions for your platform
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    Deep dive into how screenpipe works
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Explore the full REST API
+  </Card>
+</CardGroup>

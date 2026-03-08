@@ -1,0 +1,424 @@
+---
+title: 'Audio Transcription'
+description: 'Whisper-powered transcription with speaker identification and multi-device support'
+---
+
+# Audio Transcription
+
+screenpipe continuously records and transcribes audio from all your devices — microphones, speakers, and system audio — with automatic speaker identification and smart deduplication.
+
+## How It Works
+
+<Steps>
+  <Step title="Audio Capture">
+    Records 30-second segments with 2-second overlap from all active devices.
+  </Step>
+  
+  <Step title="Transcription">
+    Whisper model processes each segment, with automatic language detection and hallucination prevention.
+  </Step>
+  
+  <Step title="Speaker Identification">
+    ONNX embedding model identifies and clusters speakers based on voice characteristics.
+  </Step>
+  
+  <Step title="Deduplication">
+    Smart overlap deduplication removes repeated text across segments and devices.
+  </Step>
+</Steps>
+
+## Recording Pipeline
+
+### 30-Second Segments
+
+All audio is recorded in 30-second chunks with 2-second overlap, regardless of batch or realtime mode.
+
+<CodeGroup>
+```rust screenpipe-audio/src/core/run_record_and_transcribe.rs
+pub async fn run_record_and_transcribe(
+    audio_stream: Arc<AudioStream>,
+    duration: Duration,  // Always 30s
+    whisper_sender: Arc<Sender<AudioInput>>,
+) -> Result<()> {
+    const OVERLAP_SECONDS: usize = 2;
+    let overlap_samples = OVERLAP_SECONDS * sample_rate;
+    
+    let audio_samples_len = sample_rate * duration.as_secs() as usize;
+    let max_samples = audio_samples_len + overlap_samples;
+    
+    // Collect audio until we have 30s + 2s overlap
+    while collected_audio.len() < max_samples {
+        match recv_audio_chunk(&mut receiver).await? {
+            Some(chunk) => collected_audio.extend(chunk),
+            None => continue,
+        }
+    }
+    
+    // Send to transcription
+    flush_audio(&mut collected_audio, overlap_samples).await?;
+}
+```
+
+```typescript Segment Timeline
+// 30s segments with 2s overlap
+Segment 1: [0s ────────────────────── 30s]
+Segment 2:                    [28s ────────────────────── 58s]
+Segment 3:                                    [56s ──────────────────── 86s]
+                              ↑─ 2s overlap
+
+// Overlap ensures no words are cut mid-sentence
+```
+</CodeGroup>
+
+<Info>
+  **Overlap Purpose**: The 2-second overlap ensures words spoken at segment boundaries aren't cut in half. Deduplication removes the repeated text later.
+</Info>
+
+### Audio Stream Timeout
+
+If no audio is received for 30 seconds, the stream is considered hijacked (e.g., another app taking over the microphone).
+
+```rust
+const AUDIO_RECEIVE_TIMEOUT_SECS: u64 = 30;
+
+match tokio::time::timeout(
+    Duration::from_secs(AUDIO_RECEIVE_TIMEOUT_SECS),
+    receiver.recv(),
+).await {
+    Err(_timeout) => {
+        // Stream hijacked — trigger reconnect
+        audio_stream.is_disconnected.store(true, Ordering::Relaxed);
+    }
+}
+```
+
+## Whisper Transcription
+
+### Model Configuration
+
+screenpipe uses [whisper.cpp](https://github.com/ggerganov/whisper.cpp) with Rust bindings for fast, local transcription.
+
+<Tabs>
+  <Tab title="Hallucination Prevention">
+    Whisper hallucinates on silence/near-silence (e.g., "Thank you.", "So, let's go."). screenpipe filters this out:
+    
+    ```rust
+    const MIN_RMS_ENERGY: f32 = 0.015;
+    
+    let rms = (audio.iter().map(|s| s * s).sum::<f32>() 
+              / audio.len() as f32).sqrt();
+              
+    if rms < MIN_RMS_ENERGY {
+        return Ok(String::new());  // Skip transcription
+    }
+    ```
+    
+    **Why 0.015?**
+    - Silence: RMS = 0.0
+    - Ambient noise (0.01 amplitude): RMS ≈ 0.007
+    - White noise (0.1 amplitude): RMS ≈ 0.071
+    - Normal speech: RMS ≈ 0.05-0.3
+  </Tab>
+  
+  <Tab title="Quality Settings">
+    ```rust
+    params.set_no_speech_thold(0.6);     // Suppress when no speech detected
+    params.set_suppress_blank(true);     // No blank/silence tokens at start
+    params.set_suppress_nst(true);       // No music notes, special chars
+    params.set_entropy_thold(2.4);       // Drop repetitive/looping output
+    params.set_logprob_thold(-2.0);      // Drop low-confidence segments
+    ```
+  </Tab>
+  
+  <Tab title="Language Detection">
+    ```rust
+    whisper_state.pcm_to_mel(&audio, 2)?;
+    let (_, lang_tokens) = whisper_state.lang_detect(0, 2)?;
+    let lang = detect_language(lang_tokens, languages);
+    params.set_language(lang);
+    ```
+    
+    Automatic per-segment language detection supports:
+    - English, Spanish, French, German, Italian
+    - Portuguese, Russian, Chinese, Korean, Japanese
+    - Ukrainian, Thai, Arabic, and more
+  </Tab>
+</Tabs>
+
+### Custom Vocabulary
+
+Bias Whisper toward specific words (names, jargon, acronyms):
+
+<CodeGroup>
+```json Vocabulary Config
+[
+  {
+    "word": "screenpipe",
+    "replacement": "screenpipe"
+  },
+  {
+    "word": "llama",
+    "replacement": "Llama"
+  },
+  {
+    "word": "gpt",
+    "replacement": "GPT"
+  }
+]
+```
+
+```rust Implementation
+if !vocabulary.is_empty() {
+    let prompt: String = vocabulary
+        .iter()
+        .map(|v| v.replacement.as_deref().unwrap_or(&v.word))
+        .collect::<Vec<_>>()
+        .join(", ");
+    
+    // Truncate to ~800 chars (Whisper's 224 token limit)
+    let prompt = if prompt.len() > 800 {
+        &prompt[..800]
+    } else {
+        &prompt
+    };
+    
+    params.set_initial_prompt(prompt);
+}
+```
+</CodeGroup>
+
+<Note>
+  Whisper's `initial_prompt` parameter biases the model toward these words without forcing them. It's not a find-and-replace — it improves recognition accuracy.
+</Note>
+
+## Speaker Identification
+
+screenpipe uses speaker embedding models (ONNX) to identify and cluster speakers based on voice characteristics.
+
+### How It Works
+
+<Steps>
+  <Step title="Audio Segmentation">
+    Split transcription into voice activity segments (pauses indicate speaker changes).
+  </Step>
+  
+  <Step title="Embedding Extraction">
+    Compute voice embeddings (numerical fingerprints) for each segment.
+  </Step>
+  
+  <Step title="Speaker Clustering">
+    Group similar embeddings into speaker clusters with cosine similarity.
+  </Step>
+  
+  <Step title="Speaker Assignment">
+    Assign each segment to a speaker ID (Speaker 0, Speaker 1, etc.).
+  </Step>
+</Steps>
+
+<CodeGroup>
+```rust screenpipe-audio/src/speaker/embedding.rs
+pub struct EmbeddingExtractor {
+    session: Session,
+}
+
+impl EmbeddingExtractor {
+    pub fn compute(&mut self, samples: &[f32]) -> Result<impl Iterator<Item = f32>> {
+        // Compute fbank features (mel-frequency filterbank)
+        let features: Array2<f32> = knf_rs::compute_fbank(samples)?;
+        let features = features.insert_axis(ndarray::Axis(0));
+        
+        // Run ONNX model
+        let inputs = ort::inputs! ["feats" => features.view()]?;
+        let ort_outs = self.session.run(inputs)?;
+        
+        // Extract embedding vector
+        let embeddings = ort_outs.get("embs")
+            ?.try_extract_tensor::<f32>()?;
+        
+        Ok(embeddings.iter().copied())
+    }
+}
+```
+
+```json Example Output
+{
+  "transcription": "Let's discuss the Q4 roadmap.",
+  "speaker_id": 0,
+  "timestamp": "2026-03-08T14:23:00Z",
+  "device": "MacBook Pro Microphone"
+}
+{
+  "transcription": "Sounds good. What are the priorities?",
+  "speaker_id": 1,
+  "timestamp": "2026-03-08T14:23:05Z",
+  "device": "MacBook Pro Microphone"
+}
+```
+</CodeGroup>
+
+<Warning>
+  Speaker IDs are consistent within a session but may change across restarts. For persistent speaker names, use the speaker management API to label speakers.
+</Warning>
+
+## Audio Device Management
+
+### Multi-Device Recording
+
+screenpipe records from all devices simultaneously:
+
+<Tabs>
+  <Tab title="Input Devices">
+    - Built-in microphone
+    - External USB microphones
+    - Bluetooth headsets
+    - Virtual audio inputs (Loopback, BlackHole)
+  </Tab>
+  
+  <Tab title="Output Devices">
+    - System speakers
+    - Headphones
+    - Virtual audio outputs (for capturing app audio)
+  </Tab>
+</Tabs>
+
+<Info>
+  **Output device recording** captures what your computer is playing (YouTube, Zoom calls, music). On macOS, this requires a virtual audio device like BlackHole.
+</Info>
+
+### Device Monitoring
+
+screenpipe automatically detects when devices are added or removed:
+
+```rust
+// Device monitor runs every 5s
+let device_changes = detect_audio_device_changes().await;
+
+if !device_changes.is_empty() {
+    // Restart streams for new/removed devices
+    reconcile_audio_streams(device_changes).await?;
+}
+```
+
+<Note>
+  **Stream hijacking**: If another app takes over a microphone (e.g., Wispr Flow), screenpipe detects the timeout and automatically reconnects when the device becomes available again.
+</Note>
+
+## Deduplication
+
+### Why Deduplication?
+
+1. **Segment overlap**: 2-second overlap between 30s chunks creates duplicate text
+2. **Multi-device recording**: Same audio captured by mic + speakers
+3. **Echo/feedback**: Speaker playback captured by microphone
+
+### Deduplication Algorithm
+
+<CodeGroup>
+```rust Overlap Deduplication
+// Remove duplicate text from segment overlap
+fn deduplicate_overlap(
+    prev_segment: &str,
+    curr_segment: &str,
+    overlap_duration_secs: usize,
+) -> String {
+    // Find longest common suffix/prefix
+    let overlap_text = find_overlap(prev_segment, curr_segment);
+    
+    // Remove overlap from current segment
+    curr_segment.strip_prefix(overlap_text)
+        .unwrap_or(curr_segment)
+        .to_string()
+}
+```
+
+```rust Cross-Device Deduplication
+// Remove duplicate transcriptions across devices
+fn deduplicate_devices(
+    mic_transcript: &str,
+    speaker_transcript: &str,
+) -> (String, String) {
+    // Compute similarity (Levenshtein distance)
+    let similarity = text_similarity(mic_transcript, speaker_transcript);
+    
+    // If >80% similar, keep only mic (higher quality)
+    if similarity > 0.8 {
+        return (mic_transcript.to_string(), String::new());
+    }
+    
+    (mic_transcript.to_string(), speaker_transcript.to_string())
+}
+```
+</CodeGroup>
+
+## Performance
+
+### Transcription Speed
+
+<Tabs>
+  <Tab title="Whisper (CPU)">
+    - **tiny**: ~2x realtime (30s audio in 15s)
+    - **base**: ~1x realtime (30s audio in 30s)
+    - **small**: ~0.5x realtime (30s audio in 60s)
+    
+    Runs on 2 threads to avoid blocking the main process.
+  </Tab>
+  
+  <Tab title="Whisper (GPU)">
+    - **tiny**: ~10x realtime (30s audio in 3s)
+    - **base**: ~8x realtime (30s audio in 4s)
+    - **small**: ~5x realtime (30s audio in 6s)
+    
+    Requires CUDA or Metal GPU support.
+  </Tab>
+</Tabs>
+
+### Resource Usage
+
+```bash
+Audio Recording:    <1% CPU, ~50MB RAM per device
+Whisper (tiny):     10-20% CPU, ~200MB RAM
+Whisper (base):     20-30% CPU, ~400MB RAM
+Speaker ID:         <5% CPU, ~100MB RAM
+```
+
+## Configuration
+
+<CodeGroup>
+```json Transcription Settings
+{
+  "audio": {
+    "model": "base",           // tiny, base, small, medium, large
+    "language": "auto",        // auto-detect or specify (en, es, fr, etc.)
+    "devices": [
+      "MacBook Pro Microphone",
+      "BlackHole 2ch"          // Virtual device for system audio
+    ],
+    "speaker_identification": true,
+    "deduplication": true
+  }
+}
+```
+
+```bash CLI Usage
+# Record from all devices
+screenpipe --audio-all
+
+# Record from specific device
+screenpipe --audio-device "MacBook Pro Microphone"
+
+# Disable speaker identification
+screenpipe --no-speaker-id
+
+# Use specific Whisper model
+screenpipe --whisper-model small
+```
+</CodeGroup>
+
+## Reference
+
+Source files:
+- Recording pipeline: `crates/screenpipe-audio/src/core/run_record_and_transcribe.rs`
+- Whisper transcription: `crates/screenpipe-audio/src/transcription/whisper/batch.rs`
+- Speaker embedding: `crates/screenpipe-audio/src/speaker/embedding.rs`
+- Device management: `crates/screenpipe-audio/src/device/device_manager.rs`
+- Audio manager: `crates/screenpipe-audio/src/audio_manager/manager.rs`

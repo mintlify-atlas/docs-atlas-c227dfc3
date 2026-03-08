@@ -1,0 +1,572 @@
+---
+title: JavaScript SDK
+description: Official @screenpipe/js SDK for Node.js and browser environments
+---
+
+The `@screenpipe/js` package provides a type-safe TypeScript/JavaScript client for interacting with the Screenpipe API.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @screenpipe/js
+```
+
+```bash bun
+bun add @screenpipe/js
+```
+
+```bash pnpm
+pnpm add @screenpipe/js
+```
+
+```bash yarn
+yarn add @screenpipe/js
+```
+
+</CodeGroup>
+
+## Quick Start
+
+```typescript
+import { ScreenpipeClient } from "@screenpipe/js";
+
+const client = new ScreenpipeClient();
+
+// Search your captured data
+const results = await client.search({
+  q: "meeting notes",
+  contentType: "all",
+  limit: 10,
+});
+
+console.log(`Found ${results.pagination.total} items`);
+```
+
+## Client Configuration
+
+Create a client with custom configuration:
+
+```typescript
+import { ScreenpipeClient } from "@screenpipe/js";
+
+const client = new ScreenpipeClient({
+  baseUrl: "http://localhost:3030",      // Screenpipe server URL
+  notificationUrl: "http://localhost:11435", // Tauri sidecar URL
+});
+```
+
+### ScreenpipeClientConfig
+
+<ParamField path="baseUrl" type="string" default="http://localhost:3030">
+  Base URL for the Screenpipe server
+</ParamField>
+
+<ParamField path="notificationUrl" type="string" default="http://localhost:11435">
+  Base URL for the Tauri sidecar (notifications)
+</ParamField>
+
+## Core Methods
+
+### search
+
+Full-text search across vision, audio, and input data.
+
+```typescript
+await client.search(params: SearchParams): Promise<SearchResponse>
+```
+
+**Example:**
+
+```typescript
+const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+const results = await client.search({
+  q: "project discussion",
+  contentType: "audio",
+  startTime: fiveMinutesAgo,
+  limit: 20,
+  speakerName: "John",
+});
+
+for (const item of results.data) {
+  if (item.type === "Audio") {
+    console.log(`[${item.content.timestamp}] ${item.content.transcription}`);
+  }
+}
+```
+
+### keywordSearch
+
+Search with text positions and bounding boxes.
+
+```typescript
+await client.keywordSearch(params: KeywordSearchParams): Promise<SearchMatch[]>
+```
+
+**Example:**
+
+```typescript
+const matches = await client.keywordSearch({
+  query: "error",
+  fuzzyMatch: true,
+  limit: 10,
+  appNames: ["VSCode", "Terminal"],
+});
+
+for (const match of matches) {
+  console.log(`Found at: ${match.appName} - ${match.windowName}`);
+  console.log(`Confidence: ${match.confidence}`);
+}
+```
+
+### health
+
+Check server health and capture status.
+
+```typescript
+await client.health(): Promise<HealthCheckResponse>
+```
+
+**Example:**
+
+```typescript
+const health = await client.health();
+
+console.log(`Status: ${health.status}`);
+console.log(`Frame Status: ${health.frameStatus}`);
+console.log(`Audio Status: ${health.audioStatus}`);
+console.log(`Last Frame: ${health.lastFrameTimestamp}`);
+```
+
+## Frames
+
+### getFrame
+
+Get a frame image by ID.
+
+```typescript
+await client.getFrame(
+  frameId: number,
+  params?: GetFrameParams
+): Promise<Response>
+```
+
+**Example:**
+
+```typescript
+// Get frame as image data
+const response = await client.getFrame(12345, { redactPii: true });
+const blob = await response.blob();
+```
+
+### getFrameUrl
+
+Get the URL for a frame (useful for `<img>` tags).
+
+```typescript
+client.getFrameUrl(frameId: number, params?: GetFrameParams): string
+```
+
+**Example:**
+
+```typescript
+const frameUrl = client.getFrameUrl(12345, { redactPii: true });
+
+// In React/HTML
+<img src={frameUrl} alt="Screenshot" />
+```
+
+### getFrameOcr
+
+Get OCR text positions with bounding boxes.
+
+```typescript
+await client.getFrameOcr(frameId: number): Promise<FrameOcrResponse>
+```
+
+**Example:**
+
+```typescript
+const ocr = await client.getFrameOcr(12345);
+
+for (const position of ocr.textPositions) {
+  console.log(`Text: "${position.text}"`);
+  console.log(`Confidence: ${position.confidence}`);
+  console.log(`Bounds: ${JSON.stringify(position.bounds)}`);
+}
+```
+
+## Devices
+
+### listAudioDevices
+
+List available audio input/output devices.
+
+```typescript
+await client.listAudioDevices(): Promise<AudioDevice[]>
+```
+
+**Example:**
+
+```typescript
+const devices = await client.listAudioDevices();
+
+for (const device of devices) {
+  console.log(`${device.name} ${device.isDefault ? "(default)" : ""}`);
+}
+```
+
+### listMonitors
+
+List available displays.
+
+```typescript
+await client.listMonitors(): Promise<MonitorInfo[]>
+```
+
+**Example:**
+
+```typescript
+const monitors = await client.listMonitors();
+
+for (const monitor of monitors) {
+  console.log(`Monitor ${monitor.id}: ${monitor.width}x${monitor.height}`);
+}
+```
+
+## Audio Control
+
+### startAudio / stopAudio
+
+Start or stop audio device capture.
+
+```typescript
+await client.startAudio(
+  deviceName: string,
+  deviceType: "Input" | "Output"
+): Promise<{ success: boolean; message: string }>
+
+await client.stopAudio(
+  deviceName: string,
+  deviceType: "Input" | "Output"
+): Promise<{ success: boolean; message: string }>
+```
+
+**Example:**
+
+```typescript
+const result = await client.startAudio("MacBook Pro Microphone", "Input");
+console.log(result.message);
+
+// Later...
+await client.stopAudio("MacBook Pro Microphone", "Input");
+```
+
+## Speakers
+
+The `speakers` namespace provides methods for managing speaker identification.
+
+### speakers.search
+
+Search speakers by name.
+
+```typescript
+await client.speakers.search(name?: string): Promise<Speaker[]>
+```
+
+### speakers.update
+
+Update a speaker's name or metadata.
+
+```typescript
+await client.speakers.update(params: UpdateSpeakerParams): Promise<{ success: boolean }>
+```
+
+**Example:**
+
+```typescript
+await client.speakers.update({
+  id: 42,
+  name: "John Doe",
+  metadata: JSON.stringify({ title: "CEO" }),
+});
+```
+
+### speakers.reassign
+
+Reassign a speaker on a specific audio chunk.
+
+```typescript
+await client.speakers.reassign(
+  params: ReassignSpeakerParams
+): Promise<ReassignSpeakerResponse>
+```
+
+**Example:**
+
+```typescript
+const result = await client.speakers.reassign({
+  audioChunkId: 123,
+  newSpeakerName: "Jane Smith",
+  propagateSimilar: true,
+});
+
+console.log(`Updated ${result.transcriptionsUpdated} transcriptions`);
+```
+
+## Streaming
+
+Stream real-time transcriptions and vision events via WebSocket.
+
+### streamEvents
+
+Stream all events (transcriptions + vision).
+
+```typescript
+async *streamEvents(
+  includeImages: boolean = false
+): AsyncGenerator<EventStreamResponse, void, unknown>
+```
+
+**Example:**
+
+```typescript
+for await (const event of client.streamEvents(false)) {
+  console.log(`Event: ${event.name}`);
+  console.log(`Data: ${JSON.stringify(event.data)}`);
+}
+```
+
+### streamTranscriptions
+
+Stream only transcription events.
+
+```typescript
+async *streamTranscriptions(): AsyncGenerator<TranscriptionStreamResponse, void, unknown>
+```
+
+**Example:**
+
+```typescript
+console.log("Monitoring live transcriptions...");
+
+for await (const chunk of client.streamTranscriptions()) {
+  const text = chunk.choices[0].text;
+  const isFinal = chunk.choices[0].finish_reason === "stop";
+  const device = chunk.metadata?.device;
+
+  console.log(`[${device}] ${isFinal ? "FINAL:" : "partial:"} ${text}`);
+}
+```
+
+### streamVision
+
+Stream only vision events.
+
+```typescript
+async *streamVision(
+  includeImages: boolean = false
+): AsyncGenerator<VisionStreamResponse, void, unknown>
+```
+
+**Example:**
+
+```typescript
+for await (const vision of client.streamVision(true)) {
+  console.log(`Type: ${vision.type}`);
+  console.log(`Text: ${vision.data.text}`);
+  console.log(`App: ${vision.data.app_name}`);
+  if (vision.data.image) {
+    console.log("Has image data");
+  }
+}
+```
+
+## Tags
+
+Add or remove tags from content items.
+
+### addTags
+
+```typescript
+await client.addTags(
+  contentType: "vision" | "audio",
+  id: number,
+  tags: string[]
+): Promise<{ success: boolean }>
+```
+
+**Example:**
+
+```typescript
+await client.addTags("vision", 12345, ["important", "work", "meeting"]);
+```
+
+### removeTags
+
+```typescript
+await client.removeTags(
+  contentType: "vision" | "audio",
+  id: number,
+  tags: string[]
+): Promise<{ success: boolean }>
+```
+
+## Notifications
+
+Send desktop notifications via the Tauri sidecar.
+
+```typescript
+await client.sendNotification(
+  options: NotificationOptions
+): Promise<boolean>
+```
+
+**Example:**
+
+```typescript
+const sent = await client.sendNotification({
+  title: "Meeting Started",
+  body: "Your 2pm meeting is starting now",
+  timeout: 5000,
+  persistent: false,
+});
+```
+
+## Raw SQL
+
+Execute raw SQL queries against the Screenpipe database.
+
+```typescript
+await client.rawSql(query: string): Promise<unknown>
+```
+
+<Warning>
+Use with caution. Raw SQL queries can modify or delete data.
+</Warning>
+
+**Example:**
+
+```typescript
+const result = await client.rawSql(
+  "SELECT COUNT(*) as total FROM frames WHERE timestamp > datetime('now', '-1 hour')"
+);
+```
+
+## Type Definitions
+
+The SDK includes comprehensive TypeScript types for all API responses.
+
+### SearchParams
+
+```typescript
+interface SearchParams {
+  q?: string;                    // Search query
+  contentType?: ContentType;     // "all" | "ocr" | "audio" | "input" | "accessibility"
+  limit?: number;                // Max results (default: 20)
+  offset?: number;               // Pagination offset
+  startTime?: string;            // ISO timestamp
+  endTime?: string;              // ISO timestamp
+  appName?: string;              // Filter by app
+  windowName?: string;           // Filter by window
+  includeFrames?: boolean;       // Include base64 frames
+  speakerName?: string;          // Filter by speaker
+  // ... and more
+}
+```
+
+### ContentItem
+
+```typescript
+type ContentItem =
+  | { type: "OCR"; content: VisionContent }
+  | { type: "Audio"; content: AudioContent }
+  | { type: "UI"; content: UiContent }
+  | { type: "Input"; content: InputContent };
+```
+
+### VisionContent
+
+```typescript
+interface VisionContent {
+  frameId: number;
+  text: string;
+  timestamp: string;
+  filePath: string;
+  appName: string;
+  windowName: string;
+  tags: string[];
+  frame?: string;           // base64 image data
+  browserUrl?: string;
+  focused?: boolean;
+  deviceName: string;
+}
+```
+
+### AudioContent
+
+```typescript
+interface AudioContent {
+  chunkId: number;
+  transcription: string;
+  timestamp: string;
+  filePath: string;
+  tags: string[];
+  deviceName: string;
+  deviceType: "Input" | "Output";
+  speaker?: Speaker;
+  startTime?: number;
+  endTime?: number;
+}
+```
+
+## Error Handling
+
+All methods throw errors on failed requests:
+
+```typescript
+try {
+  const results = await client.search({ q: "test" });
+} catch (error) {
+  if (error instanceof Error) {
+    console.error(`Search failed: ${error.message}`);
+  }
+}
+```
+
+## Browser SDK
+
+For browser environments, use `@screenpipe/browser`:
+
+```bash
+npm install @screenpipe/browser
+```
+
+The API is identical to `@screenpipe/js`.
+
+## Examples
+
+Complete examples are available in the source repository:
+
+- [Basic Query](/examples/query-screenpipe)
+- [Real-time Transcription](/examples/basic-transcription)
+- [Screenshot Streaming](/examples/stream-screenshots)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api/introduction">
+    Complete API documentation
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/developers/cli-reference">
+    Command-line tools
+  </Card>
+  <Card title="Examples" icon="code" href="/examples">
+    Code examples and tutorials
+  </Card>
+  <Card title="Streaming" icon="wave-pulse" href="/api/introduction/streaming">
+    Real-time data streams
+  </Card>
+</CardGroup>

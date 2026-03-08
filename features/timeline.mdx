@@ -1,0 +1,548 @@
+---
+title: 'Timeline'
+description: 'Visual timeline view for browsing screen and audio history with playback and navigation'
+---
+
+# Timeline
+
+The timeline provides a chronological view of all your captured screen and audio data, allowing you to browse, filter, and replay your digital history.
+
+## Timeline API
+
+### Fetch Timeline Data
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:3030/timeline?limit=50&offset=0"
+```
+
+```typescript JavaScript
+const response = await fetch(
+  'http://localhost:3030/timeline?limit=50&offset=0'
+);
+const timeline = await response.json();
+
+// timeline.data contains chronological content items
+timeline.data.forEach(item => {
+  console.log(`${item.content.timestamp}: ${item.type}`);
+});
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'http://localhost:3030/timeline',
+    params={'limit': 50, 'offset': 0}
+)
+
+timeline = response.json()
+for item in timeline['data']:
+    print(f"{item['content']['timestamp']}: {item['type']}")
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  Number of items to return (max 1000).
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Pagination offset.
+</ParamField>
+
+<ParamField query="start_time" type="datetime">
+  Start of time range (ISO 8601 or Unix timestamp).
+</ParamField>
+
+<ParamField query="end_time" type="datetime">
+  End of time range (ISO 8601 or Unix timestamp).
+</ParamField>
+
+<ParamField query="content_type" type="enum" default="all">
+  Filter by content type: `all`, `ocr`, `audio`, `ui`.
+</ParamField>
+
+<ParamField query="app_name" type="string">
+  Filter by application name.
+</ParamField>
+
+<ParamField query="window_name" type="string">
+  Filter by window title (partial match).
+</ParamField>
+
+<ParamField query="include_frames" type="boolean" default="false">
+  Include base64-encoded frame images.
+</ParamField>
+
+## Timeline Features
+
+### Chronological View
+
+The timeline returns all content (screen + audio) sorted by timestamp:
+
+<CodeGroup>
+```json Timeline Response
+{
+  "data": [
+    {
+      "type": "OCR",
+      "content": {
+        "timestamp": "2026-03-08T14:23:00Z",
+        "text": "screenpipe documentation",
+        "app_name": "Chrome",
+        "window_name": "docs.screenpi.pe",
+        "file_path": "~/.screenpipe/data/2026-03-08/1709911380000_m0.jpg",
+        "text_source": "accessibility",
+        "capture_trigger": "app_switch"
+      }
+    },
+    {
+      "type": "Audio",
+      "content": {
+        "timestamp": "2026-03-08T14:23:30Z",
+        "transcription": "Let's review the API documentation.",
+        "device_name": "MacBook Pro Microphone",
+        "speaker_id": 0
+      }
+    },
+    {
+      "type": "OCR",
+      "content": {
+        "timestamp": "2026-03-08T14:24:15Z",
+        "text": "GET /search endpoint parameters",
+        "app_name": "Chrome",
+        "window_name": "API Reference - screenpipe",
+        "file_path": "~/.screenpipe/data/2026-03-08/1709911455000_m0.jpg",
+        "text_source": "accessibility",
+        "capture_trigger": "scroll_stop"
+      }
+    }
+  ],
+  "pagination": {
+    "limit": 50,
+    "offset": 0,
+    "total": 1247
+  }
+}
+```
+</CodeGroup>
+
+### Time-Based Navigation
+
+<Tabs>
+  <Tab title="Recent Activity">
+    ```bash
+    # Last hour
+    curl "http://localhost:3030/timeline?start_time=$(date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)&limit=100"
+    
+    # Last 24 hours
+    curl "http://localhost:3030/timeline?start_time=$(date -u -v-24H +%Y-%m-%dT%H:%M:%SZ)&limit=500"
+    ```
+  </Tab>
+  
+  <Tab title="Specific Date">
+    ```bash
+    # Entire day
+    curl "http://localhost:3030/timeline?start_time=2026-03-08T00:00:00Z&end_time=2026-03-08T23:59:59Z"
+    
+    # Specific hour
+    curl "http://localhost:3030/timeline?start_time=2026-03-08T14:00:00Z&end_time=2026-03-08T15:00:00Z"
+    ```
+  </Tab>
+  
+  <Tab title="Working Hours">
+    ```typescript
+    // 9am - 5pm today
+    const today = new Date();
+    const start = new Date(today.setHours(9, 0, 0, 0)).toISOString();
+    const end = new Date(today.setHours(17, 0, 0, 0)).toISOString();
+    
+    const response = await fetch(
+      `http://localhost:3030/timeline?start_time=${start}&end_time=${end}`
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Frame Deep Links
+
+Every frame has a direct URL for viewing:
+
+<CodeGroup>
+```bash Frame Endpoint
+# Get specific frame
+GET /frames/{frame_id}
+
+# Example
+curl "http://localhost:3030/frames/12345"
+```
+
+```json Frame Response
+{
+  "frame_id": 12345,
+  "timestamp": "2026-03-08T14:23:00Z",
+  "file_path": "~/.screenpipe/data/2026-03-08/1709911380000_m0.jpg",
+  "app_name": "Chrome",
+  "window_name": "docs.screenpi.pe",
+  "text": "screenpipe documentation",
+  "text_source": "accessibility",
+  "capture_trigger": "app_switch",
+  "image": "base64-encoded JPEG" // if include_image=true
+}
+```
+
+```html Display Frame
+<img 
+  src="http://localhost:3030/frames/12345?image=true" 
+  alt="Frame 12345"
+/>
+```
+</CodeGroup>
+
+<Info>
+  **New snapshot frames** are served directly as JPEG (less than 5ms). **Old video-chunk frames** are extracted via FFmpeg (100-500ms) for backward compatibility.
+</Info>
+
+## UI Implementation
+
+### Infinite Scroll Timeline
+
+<CodeGroup>
+```typescript React Example
+import { useState, useEffect, useRef } from 'react';
+
+function Timeline() {
+  const [items, setItems] = useState([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const observer = useRef();
+  
+  const loadMore = async () => {
+    const response = await fetch(
+      `http://localhost:3030/timeline?limit=50&offset=${offset}`
+    );
+    const data = await response.json();
+    
+    setItems(prev => [...prev, ...data.data]);
+    setOffset(prev => prev + 50);
+    setHasMore(data.pagination.total > offset + 50);
+  };
+  
+  useEffect(() => {
+    loadMore();
+  }, []);
+  
+  // Intersection observer for infinite scroll
+  const lastItemRef = useRef();
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadMore();
+        }
+      },
+      { threshold: 1.0 }
+    );
+    
+    if (lastItemRef.current) {
+      observer.observe(lastItemRef.current);
+    }
+    
+    return () => observer.disconnect();
+  }, [hasMore]);
+  
+  return (
+    <div className="timeline">
+      {items.map((item, index) => (
+        <div 
+          key={`${item.type}-${item.content.timestamp}-${index}`}
+          ref={index === items.length - 1 ? lastItemRef : null}
+        >
+          <TimelineItem item={item} />
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+```typescript TimelineItem Component
+function TimelineItem({ item }) {
+  if (item.type === 'OCR') {
+    return (
+      <div className="timeline-item screen">
+        <div className="timestamp">
+          {new Date(item.content.timestamp).toLocaleString()}
+        </div>
+        <div className="app-info">
+          {item.content.app_name} — {item.content.window_name}
+        </div>
+        <div className="content">
+          {item.content.text}
+        </div>
+        {item.content.file_path && (
+          <img 
+            src={`http://localhost:3030/frames/${item.content.frame_id}?image=true`}
+            alt="Screenshot"
+            loading="lazy"
+          />
+        )}
+        <div className="metadata">
+          {item.content.text_source} • {item.content.capture_trigger}
+        </div>
+      </div>
+    );
+  }
+  
+  if (item.type === 'Audio') {
+    return (
+      <div className="timeline-item audio">
+        <div className="timestamp">
+          {new Date(item.content.timestamp).toLocaleString()}
+        </div>
+        <div className="speaker">
+          {item.content.speaker_name || `Speaker ${item.content.speaker_id}`}
+        </div>
+        <div className="transcription">
+          {item.content.transcription}
+        </div>
+        <div className="metadata">
+          {item.content.device_name}
+        </div>
+      </div>
+    );
+  }
+}
+```
+</CodeGroup>
+
+### Activity Heatmap
+
+Visualize capture density over time:
+
+<CodeGroup>
+```typescript Fetch Activity Data
+// Get captures per hour for a day
+async function getActivityHeatmap(date: Date) {
+  const start = new Date(date.setHours(0, 0, 0, 0));
+  const end = new Date(date.setHours(23, 59, 59, 999));
+  
+  const hours = [];
+  for (let hour = 0; hour < 24; hour++) {
+    const hourStart = new Date(start.getTime() + hour * 60 * 60 * 1000);
+    const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000);
+    
+    const response = await fetch(
+      `http://localhost:3030/timeline?` +
+      `start_time=${hourStart.toISOString()}&` +
+      `end_time=${hourEnd.toISOString()}&` +
+      `limit=1`
+    );
+    const data = await response.json();
+    
+    hours.push({
+      hour,
+      count: data.pagination.total
+    });
+  }
+  
+  return hours;
+}
+```
+
+```typescript Render Heatmap
+function ActivityHeatmap({ date }) {
+  const [activity, setActivity] = useState([]);
+  
+  useEffect(() => {
+    getActivityHeatmap(date).then(setActivity);
+  }, [date]);
+  
+  const maxCount = Math.max(...activity.map(h => h.count));
+  
+  return (
+    <div className="heatmap">
+      {activity.map(({ hour, count }) => (
+        <div
+          key={hour}
+          className="hour"
+          style={{
+            opacity: count / maxCount,
+            backgroundColor: '#3b82f6'
+          }}
+          title={`${hour}:00 — ${count} captures`}
+        >
+          {hour}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+</CodeGroup>
+
+## Timeline Performance
+
+### Pagination Strategy
+
+<Steps>
+  <Step title="Load Initial Page">
+    ```bash
+    GET /timeline?limit=50&offset=0
+    # Returns items 0-49
+    # Response time: ~20-50ms
+    ```
+  </Step>
+  
+  <Step title="User Scrolls">
+    ```bash
+    GET /timeline?limit=50&offset=50
+    # Returns items 50-99
+    # Response time: ~20-50ms (cached if recent)
+    ```
+  </Step>
+  
+  <Step title="Lazy Load Images">
+    ```html
+    <img loading="lazy" src="/frames/12345?image=true" />
+    # Only loads when scrolled into view
+    # Reduces initial page load time
+    ```
+  </Step>
+</Steps>
+
+<Info>
+  **Performance Tips**:
+  - Use `limit=50` for smooth scrolling
+  - Add `loading="lazy"` to frame images
+  - Cache timeline responses client-side
+  - Use virtual scrolling for 1000+ items
+</Info>
+
+### Database Indexing
+
+Timeline queries are optimized with indexes:
+
+```sql
+CREATE INDEX idx_frames_ts_device ON frames(timestamp, device_name);
+CREATE INDEX idx_audio_ts_device ON audio_transcriptions(timestamp, device_name);
+
+-- Query uses index for fast timestamp-based sorting
+SELECT * FROM frames 
+WHERE timestamp > ? AND timestamp < ?
+ORDER BY timestamp DESC
+LIMIT 50 OFFSET 0;
+```
+
+## Playback Features
+
+### Frame-by-Frame Navigation
+
+<CodeGroup>
+```typescript Next/Previous Frame
+// Get current frame
+const current = await fetch(`/frames/${frameId}`);
+const data = await current.json();
+
+// Get next frame (by timestamp)
+const next = await fetch(
+  `/timeline?` +
+  `start_time=${data.timestamp}&` +
+  `content_type=ocr&` +
+  `limit=1&` +
+  `offset=1`
+);
+
+// Get previous frame
+const prev = await fetch(
+  `/timeline?` +
+  `end_time=${data.timestamp}&` +
+  `content_type=ocr&` +
+  `limit=1`
+);
+```
+
+```typescript Keyboard Navigation
+function TimelineViewer() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [items, setItems] = useState([]);
+  
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowLeft') {
+        setCurrentIndex(i => Math.max(0, i - 1));
+      } else if (e.key === 'ArrowRight') {
+        setCurrentIndex(i => Math.min(items.length - 1, i + 1));
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [items.length]);
+  
+  return (
+    <div className="viewer">
+      <div className="frame">
+        {items[currentIndex] && (
+          <img src={`/frames/${items[currentIndex].content.frame_id}?image=true`} />
+        )}
+      </div>
+      <div className="controls">
+        <button onClick={() => setCurrentIndex(i => Math.max(0, i - 1))}>
+          ← Previous
+        </button>
+        <span>{currentIndex + 1} / {items.length}</span>
+        <button onClick={() => setCurrentIndex(i => Math.min(items.length - 1, i + 1))}>
+          Next →
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+</CodeGroup>
+
+### Timeline Scrubbing
+
+<CodeGroup>
+```typescript Time Scrubber
+function TimeScrubber({ startTime, endTime, onSeek }) {
+  const [position, setPosition] = useState(0);
+  
+  const handleScrub = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = x / rect.width;
+    
+    const start = new Date(startTime).getTime();
+    const end = new Date(endTime).getTime();
+    const targetTime = start + (end - start) * percentage;
+    
+    onSeek(new Date(targetTime));
+  };
+  
+  return (
+    <div 
+      className="scrubber"
+      onClick={handleScrub}
+    >
+      <div className="track" />
+      <div 
+        className="thumb" 
+        style={{ left: `${position * 100}%` }}
+      />
+    </div>
+  );
+}
+```
+</CodeGroup>
+
+## Reference
+
+Source files:
+- Timeline API: `crates/screenpipe-engine/src/routes/timeline.rs`
+- Frame serving: `crates/screenpipe-engine/src/routes/frames.rs`
+- Database queries: `crates/screenpipe-db/src/timeline.rs`
+- Video extraction: `crates/screenpipe-engine/src/video_utils.rs`

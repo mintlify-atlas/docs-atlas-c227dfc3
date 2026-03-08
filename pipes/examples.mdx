@@ -1,0 +1,548 @@
+---
+title: Pipe Examples
+description: Real, working pipes you can copy and customize
+---
+
+This page contains complete, production-ready pipe examples. Copy the `pipe.md` file to `~/.screenpipe/pipes/{pipe_name}/pipe.md` and customize.
+
+## Obsidian daily sync
+
+Automatically sync screenpipe activity to an Obsidian vault as a daily markdown log with timeline, action items, and deep links.
+
+
+```markdown
+---
+schedule: every 1h
+enabled: false
+---
+
+Sync screenpipe activity to an Obsidian vault as a daily markdown log.
+
+## Task
+
+1. Read the existing daily note file first (if it exists) — merge into it
+2. Query the screenpipe search API for the time range in 30-minute chunks
+3. Use `min_length=50` to skip noisy/short OCR fragments
+4. Synthesize activities, extract action items, write the note
+
+## Search API
+
+    ```
+GET http://localhost:3030/search?content_type=ocr&start_time=ISO8601_TIMESTAMP&end_time=ISO8601_TIMESTAMP&limit=200&min_length=50
+    ```
+
+Content types: `ocr` (screen text), `audio` (speech), `input` (clicks/keystrokes/clipboard/app switches), `accessibility` (UI tree), `all`.
+
+Extra params: `q` (keyword), `app_name`, `speaker_name`, `offset` (pagination).
+
+Full API reference (60+ endpoints): API documentation (see /api/introduction)
+
+Query each modality separately per chunk for richer results:
+1. `content_type=ocr&min_length=50` — what was on screen
+2. `content_type=audio` — what was said
+3. `content_type=input` — what was typed, clicked, copied
+4. `content_type=accessibility` — UI elements (buttons, labels, menus)
+
+## Output Format
+
+    ```markdown
+# Activity Log - <date>
+
+## Timeline
+
+| Time | Activity | Apps | Tags |
+|------|----------|------|------|
+| 10:00-10:30 | Reviewed PR #123 for auth module | GitHub, VSCode | #coding #review |
+| 10:30-11:00 | Call with team about roadmap | Zoom, Notion | #meeting #planning |
+
+## Action Items
+
+- [ ] Follow up with [[Alice]] on API design — from 10:30 meeting
+- [ ] Review deployment checklist before Friday
+
+## Key Moments
+
+- [10:32 AM](screenpipe://timeline?timestamp=2025-02-01T10:32:00Z) — [[Bob]] mentioned Q2 deadline
+- [11:15 AM](screenpipe://timeline?timestamp=2025-02-01T11:15:00Z) — decided to use PostgreSQL
+
+## Summary
+
+Brief 2-3 sentence summary of the day so far.
+    ```
+
+## Deep Links
+
+- Timeline: `[10:30 AM](screenpipe://timeline?timestamp=2025-02-01T10:30:00Z)`
+- Frame: `[screenshot](screenpipe://frame/<frame_id>)` using frame_id from results
+
+## Rules
+
+- Link people with [[Name]] and concepts with [[concept]] (Obsidian wiki-links)
+- Extract TODOs: tasks, follow-ups, URLs to visit, deadlines mentioned
+- Keep summaries concise, group related activities
+- Add semantic tags (#coding, #meeting, etc.)
+- Skip idle periods or duplicates
+- Use the user's local timezone for all displayed times
+- Query in chunks to avoid context overflow
+
+## Accumulation (for hourly syncs)
+
+- Read existing note first — merge, don't overwrite
+- Deduplicate time ranges already in the timeline
+- Keep existing TODOs, add new ones
+- Rewrite Summary to cover the full day so far
+
+## Privacy
+
+- Never dump raw OCR — synthesize into activity descriptions
+- Redact passwords, API keys, tokens, credentials
+- Skip banking/financial/medical content — note as "private activity"
+- Summarize conversations, don't paste full transcripts
+```
+
+
+**Use case**: Knowledge workers who want automatic daily logs in Obsidian.
+
+**Customization**:
+- Change `schedule` to run more/less frequently
+- Adjust the output path to match your Obsidian vault location
+- Add app filters to exclude personal apps
+
+---
+
+## Apple Reminders from activity
+
+Scan recent screen activity and create Apple Reminders for actionable items (macOS only).
+
+
+```markdown
+---
+schedule: every 30m
+enabled: false
+---
+
+Scan recent screen activity and create Apple Reminders for actionable items.
+
+## Task
+
+1. Query screenpipe for recent activity using the time range in the context header
+2. Look for actionable items: todos in chat, deadlines in emails, follow-ups from meetings, tasks from project tools
+3. For each actionable item, create an Apple Reminder
+
+## Search API
+
+```
+GET http://localhost:3030/search?content_type=all&start_time=ISO8601_TIMESTAMP&end_time=ISO8601_TIMESTAMP&limit=100
+```
+
+Full API reference (60+ endpoints): API documentation (see /api/introduction)
+
+## Creating Reminders (macOS)
+
+```bash
+osascript -e 'tell application "Reminders"
+    tell list "Screenpipe"
+        make new reminder with properties {name:"TITLE", body:"DETAILS", due date:date "DATE"}
+    end tell
+end tell'
+```
+
+If the "Screenpipe" list doesn't exist, create it first:
+```bash
+osascript -e 'tell application "Reminders" to make new list with properties {name:"Screenpipe"}'
+```
+
+## Rules
+
+- Only create reminders for genuinely actionable items
+- Don't duplicate — check if a similar reminder already exists
+- Include context: where you found the item (app, window, conversation)
+- Set due dates when mentioned; otherwise leave without due date
+- Keep reminder titles short and actionable (start with a verb)
+```
+
+
+**Use case**: People with ADHD or anyone who loses track of todos mentioned in conversations.
+
+**Customization**:
+- Change `schedule` to run more/less frequently
+- Modify the AppleScript to use a different Reminders list
+- Add app filters to only scan work apps
+
+---
+
+## Idea tracker
+
+Analyze what you're researching and surface startup ideas based on market trends.
+
+
+```markdown
+---
+schedule: every 4h
+enabled: false
+---
+
+You are an idea scout. Analyze the user's recent screen activity to find what they're researching and working on, then search the web for related trends and opportunities.
+
+## Task
+
+1. Query screenpipe for recent activity using the time range in the context header
+2. Extract the top 3-5 topics the user has been researching (focus on articles, GitHub repos, Twitter threads, HN posts, docs, search queries — ignore routine email/calendar)
+3. For each topic, use web_search to find:
+   - Recent market trends and growth signals
+   - New startups or products in the space
+   - Gaps or complaints (Reddit, HN, Twitter)
+   - Adjacent opportunities
+4. Synthesize into actionable ideas
+
+## Search API
+
+```
+GET http://localhost:3030/search?content_type=all&start_time=ISO8601_TIMESTAMP&end_time=ISO8601_TIMESTAMP&limit=200
+```
+
+Full API reference (60+ endpoints): API documentation (see /api/introduction)
+
+## Output Format
+
+Write to ./output/<date>.md:
+
+```markdown
+# Idea Scout — <date>
+
+## What you were exploring
+- [Topic 1]: brief summary
+- [Topic 2]: ...
+
+## Trends & signals
+| Topic | Signal | Source | Strength |
+|-------|--------|--------|----------|
+| ... | ... | ... | high/med/low |
+
+## Ideas worth exploring
+### 1. [Idea title]
+**What:** One sentence description
+**Why now:** What makes this timely
+**Your edge:** How your current work connects
+**First step:** One action to validate in 30 minutes
+```
+
+## Rules
+
+- Focus on what the user is ACTUALLY interested in based on screen time
+- Be specific — "AI agents for dental clinics" not "AI is growing"
+- Include contrarian takes — what's everyone ignoring?
+- Flag if something the user is working on overlaps with a hot trend
+- Don't repeat ideas from previous runs (check ./output/)
+- Quality over quantity — 2 great ideas > 5 generic ones
+```
+
+
+**Use case**: Founders, researchers, and curious people who want to turn browsing into opportunities.
+
+**Customization**:
+- Adjust the schedule based on how often you want new ideas
+- Add app filters to focus on research apps (browsers, docs) and exclude others
+- Modify the output format to match your note-taking system
+
+---
+
+## Team standup generator
+
+Generate weekly standup updates from your actual work (for remote teams).
+
+
+```markdown
+---
+schedule: "0 9 * * MON"  # Every Monday at 9 AM
+enabled: false
+model: claude-haiku-4-5
+
+# Work hours only, work apps only
+allow-apps:
+  - Slack
+  - Notion
+  - GitHub
+  - VS Code
+  - Linear
+  - Figma
+deny-apps:
+  - 1Password
+  - Signal
+  - Messages
+deny-windows:
+  - "*incognito*"
+  - "*private*"
+allow-content-types:
+  - ocr
+  - audio
+time-range: "09:00-18:00"
+days: "Mon,Tue,Wed,Thu,Fri"
+allow-raw-sql: false
+allow-frames: false
+---
+
+You are a standup generator.
+
+## Task
+
+1. Query screenpipe for last week (Monday-Friday, 9am-6pm)
+2. Summarize what the user worked on by project:
+   - PRs merged, issues closed
+   - Design work (Figma files)
+   - Meetings attended
+   - Documentation written
+3. Extract any blockers or issues mentioned in conversations
+4. Write a standup update to ./output/standup-{YYYY-MM-DD}.md
+
+## Search API
+
+```
+GET http://localhost:3030/search?content_type=all&start_time=ISO8601_TIMESTAMP&end_time=ISO8601_TIMESTAMP&limit=300
+```
+
+Query in daily chunks (Monday, Tuesday, ..., Friday) for better context.
+
+## Output Format
+
+```markdown
+# Weekly Standup — Week of {date}
+
+## What I shipped
+- **{Project name}**: {1-2 sentence summary}
+- **{Project name}**: {1-2 sentence summary}
+
+## What I'm working on this week
+- {Item from calendar or mentioned in recent conversations}
+
+## Blockers
+- {Any blockers mentioned, or "None"}
+
+## Detailed breakdown
+### Monday
+- {Key activities}
+
+### Tuesday
+- {Key activities}
+
+...
+```
+
+## Rules
+
+- Focus on outcomes ("Shipped X", "Fixed Y"), not activities ("Worked on X")
+- Group related work by project
+- Include links to PRs, issues, Figma files when possible
+- Skip routine activities (email, Slack chats) unless actionable
+- Be concise — aim for 1-2 paragraphs per project
+- Use bullet points, not prose
+```
+
+
+**Use case**: Remote teams who want automatic standup updates based on actual work, not manual recall.
+
+**Customization**:
+- Change the schedule (e.g., daily standups: `"0 9 * * *"`)
+- Adjust app filters to match your team's tools
+- Modify the output format to match your team's standup template
+
+**Note**: This example shows how to use data permissions for team deployments — it only accesses work apps during work hours.
+
+---
+
+## Meeting transcription & summary
+
+Transcribe meetings and generate summaries with action items (requires audio capture enabled).
+
+
+```markdown
+---
+schedule: manual
+enabled: true
+allow-content-types:
+  - audio
+---
+
+You are a meeting transcription and summary assistant.
+
+## Task
+
+1. Query screenpipe for audio data in the specified time range
+2. Extract the full transcription
+3. Identify speakers (if speaker IDs are available)
+4. Generate a structured meeting summary
+5. Extract action items and decisions
+6. Write to ./output/meeting-{YYYY-MM-DD-HHMM}.md
+
+## Search API
+
+```
+GET http://localhost:3030/search?content_type=audio&start_time=ISO8601_TIMESTAMP&end_time=ISO8601_TIMESTAMP&limit=500
+```
+
+For long meetings (>1 hour), query in 30-minute chunks and merge transcriptions.
+
+## Output Format
+
+```markdown
+# Meeting Summary — {date} {time}
+
+**Attendees:** {List of speaker names}
+**Duration:** {Duration}
+**Recording:** [Open in screenpipe](screenpipe://timeline?timestamp={start_time})
+
+## Summary
+
+{2-3 sentence high-level summary}
+
+## Key Points
+
+- {Point 1}
+- {Point 2}
+- {Point 3}
+
+## Action Items
+
+- [ ] {@Person} — {Action item with context}
+- [ ] {@Person} — {Action item with context}
+
+## Decisions Made
+
+- {Decision 1}
+- {Decision 2}
+
+## Transcript
+
+**{Speaker 1}** ({timestamp}): {What they said}
+
+**{Speaker 2}** ({timestamp}): {What they said}
+
+...
+```
+
+## Rules
+
+- Use speaker names if available, otherwise "Speaker 1", "Speaker 2", etc.
+- Include timestamps for each speaker turn
+- Extract action items with clear ownership (@Person)
+- Identify decisions (not just discussion points)
+- Keep the summary high-level and actionable
+- Group related discussion points together
+- If the audio contains multiple meetings, split into separate sections
+```
+
+
+**Use case**: Remote workers who want automatic meeting notes without manual note-taking.
+
+**Customization**:
+- Change to scheduled runs (e.g., `"0 17 * * *"` to summarize all meetings at 5 PM)
+- Add app filters to only transcribe specific meeting apps (Zoom, Teams, etc.)
+- Integrate with Notion or Slack to post summaries automatically
+
+**Note**: This pipe only accesses audio data (`allow-content-types: [audio]`). It won't see screen content.
+
+---
+
+## Time breakdown by project
+
+Categorize work by project and generate a time breakdown (great for freelancers and consultants).
+
+
+```markdown
+---
+schedule: "0 18 * * FRI"  # Every Friday at 6 PM
+enabled: false
+---
+
+You are a time tracking assistant.
+
+## Task
+
+1. Query screenpipe for the last week (Monday-Friday)
+2. Categorize activities by project based on:
+   - Window titles (e.g., "ProjectX - VS Code" → ProjectX)
+   - App names (e.g., "Figma" + "ClientY" in OCR → ClientY)
+   - Keywords in OCR text (project names, repos, client names)
+3. Estimate time spent on each project (based on timestamps and app switches)
+4. Write a CSV to ./output/timesheet-{YYYY-MM-DD}.csv
+
+## Search API
+
+```
+GET http://localhost:3030/search?content_type=all&start_time=ISO8601_TIMESTAMP&end_time=ISO8601_TIMESTAMP&limit=500
+```
+
+Query in daily chunks for better categorization.
+
+## Project categorization
+
+Use these heuristics:
+- Window titles: `"ProjectX - VS Code"` → ProjectX
+- Git repos: `"github.com/client/project"` → Client/Project
+- App + keyword: Figma + "Acme Corp" in OCR → Acme Corp
+- Default: "Uncategorized" for activities that don't match any project
+
+## Output Format (CSV)
+
+```csv
+Project,Date,App,Duration (minutes),Activities
+ProjectX,2026-03-03,VS Code,120,"Implemented auth module, fixed bugs"
+ProjectX,2026-03-03,Chrome,30,"Researched OAuth flows"
+ClientY,2026-03-03,Figma,90,"Designed dashboard mockups"
+ClientY,2026-03-03,Slack,15,"Call with client about feedback"
+Uncategorized,2026-03-03,Email,45,"Inbox management"
+```
+
+## Rules
+
+- Only include work time (ignore breaks, personal apps)
+- Group consecutive activity in the same app into one row
+- Be conservative with time estimates (round down, not up)
+- Include brief activity summaries (what was actually done)
+- Exclude time in password managers, messaging apps (unless clearly work-related)
+- Total each project at the end
+
+## Summary section
+
+After the CSV, write a markdown summary to ./output/timesheet-{YYYY-MM-DD}.md:
+
+```markdown
+# Weekly Time Breakdown — Week of {date}
+
+| Project | Total Hours | Percentage |
+|---------|-------------|------------|
+| ProjectX | 12.5 | 50% |
+| ClientY | 8.0 | 32% |
+| Uncategorized | 4.5 | 18% |
+| **Total** | **25.0** | **100%** |
+
+## Top activities this week
+- {Activity 1}
+- {Activity 2}
+- {Activity 3}
+```
+```
+
+
+**Use case**: Freelancers, consultants, and agencies who need to track time by client/project.
+
+**Customization**:
+- Adjust the schedule (e.g., daily: `"0 18 * * *"`)
+- Modify project categorization rules to match your naming conventions
+- Export to your time tracking tool's format (Toggl, Harvest, etc.)
+
+---
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Pipes" icon="code" href="/pipes/creating-pipes">
+    Learn how to write custom pipes
+  </Card>
+  <Card title="Data Permissions" icon="shield" href="/pipes/data-permissions">
+    Configure access control for your pipes
+  </Card>
+  <Card title="API Reference" icon="terminal" href="API documentation (see /api/introduction)">
+    Complete screenpipe API documentation
+  </Card>
+</CardGroup>

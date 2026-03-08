@@ -1,0 +1,508 @@
+---
+title: "Teams Deployment"
+description: "Deploy screenpipe across your organization with centralized config and AI data permissions"
+---
+
+## Overview
+
+screenpipe Teams lets organizations deploy AI agents across their team with full control over what AI can access. Admins configure capture settings and AI permissions centrally, while all employee data stays on their individual devices.
+
+<Note>
+Teams pricing is custom. See [screenpi.pe/team](https://screenpi.pe/team) for details.
+</Note>
+
+## Core Features
+
+### Central Config Management
+
+Push capture settings from an admin dashboard to every device in your organization:
+
+- **App filters**: Which apps to record (e.g., work apps only)
+- **Schedule rules**: When to capture (e.g., business hours only)
+- **URL filtering**: Block personal sites or specific domains
+- **Content types**: Enable/disable OCR, audio, accessibility data
+- **Storage limits**: Max database size per device
+
+**Admin view**:
+```yaml
+# Central config pushed to all devices
+capture:
+  app_allowlist:
+    - "Slack"
+    - "Microsoft Teams" 
+    - "Google Chrome"
+    - "VS Code"
+  
+  schedule:
+    days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    hours: "09:00-18:00"
+  
+  url_blocklist:
+    - "*facebook.com*"
+    - "*twitter.com*"
+    - "*reddit.com*"
+```
+
+**Employee override**:
+```yaml
+# Employee can ADD stricter filters but cannot weaken admin rules
+employee_overrides:
+  url_blocklist:
+    - "*gmail.com*"  # Employee adds personal email blocking
+    # Cannot remove admin-set blocklist items
+```
+
+### Shared Pipes
+
+Deploy AI workflows (pipes) team-wide from a central library:
+
+**Examples**:
+- **Auto-standups**: Generate daily standup summaries from screen activity
+- **Meeting-to-tickets**: Convert meeting transcripts into Jira tickets
+- **Time tracking**: Automatically log billable hours by project
+- **Compliance monitoring**: Flag sensitive data exposure (PII, credentials)
+- **Knowledge capture**: Extract and index team learnings to internal wiki
+
+**Deployment flow**:
+```
+┌─────────────────┐
+│  Admin Console  │ ─── Publish pipe ───▶ │  Shared Library  │
+└─────────────────┘                        └──────────────────┘
+                                                    │
+                       ┌────────────────────────────┼────────────────────────────┐
+                       ▼                            ▼                            ▼
+                 ┌──────────┐                 ┌──────────┐                 ┌──────────┐
+                 │  Device  │                 │  Device  │                 │  Device  │
+                 │ Employee │                 │ Employee │                 │ Employee │
+                 │    A     │                 │    B     │                 │    C     │
+                 └──────────┘                 └──────────┘                 └──────────┘
+```
+
+Pipes are installed automatically on all employee devices. Updates to shared pipes propagate instantly.
+
+### Per-Pipe AI Data Permissions
+
+**The problem**: AI agents need screen data to be useful, but unlimited access is a security risk.
+
+**The solution**: Deterministic, OS-level access control defined in YAML frontmatter.
+
+Each pipe's `pipe.md` includes frontmatter that controls exactly what data the AI agent can access:
+
+```yaml
+---
+name: meeting-to-tickets
+schedule: "0 18 * * 1-5"  # End of each workday
+
+# App & window filtering
+allow-apps:
+  - "Zoom"
+  - "Google Meet"
+  - "Microsoft Teams"
+
+deny-windows:
+  - "*password*"
+  - "*private*"
+  - "*1Password*"
+
+# Content type restrictions
+allow-content-types:
+  - "audio"      # Meeting transcripts only
+  # No OCR, no screen text, no input tracking
+
+# Time restrictions  
+time-range: "09:00-18:00"
+days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+
+# Endpoint gating
+allow-raw-sql: false    # No direct database queries
+allow-frames: false     # No screenshot access
+---
+
+## Meeting to Tickets
+
+You are an AI agent that converts meeting transcripts into Jira tickets...
+```
+
+### Enforcement Layers
+
+<Warning>
+Permissions are **not prompt-based**. They are enforced at three OS-level layers:
+</Warning>
+
+**Layer 1: Skill Gating**
+- AI agent never learns about denied endpoints
+- Skill files loaded conditionally based on permissions
+- Agent literally cannot call blocked APIs
+
+**Layer 2: Agent Interception**
+- Before execution, every API call is checked against pipe config
+- Blocked before agent code runs
+- Violations logged and reported to admin console
+
+**Layer 3: Server Middleware**
+- Per-pipe cryptographic tokens
+- Token includes hash of permitted scopes
+- Server validates token on every request
+- Even a compromised agent cannot bypass
+
+### Permission Fields Reference
+
+| Field | Type | Description | Example |
+|-------|------|-------------|----------|
+| `allow-apps` | List | Only access data from these apps | `["Slack", "Chrome"]` |
+| `deny-apps` | List | Never access data from these apps | `["1Password", "Signal"]` |
+| `allow-windows` | List | Only access windows matching patterns | `["*Meeting*", "*Call*"]` |
+| `deny-windows` | List | Never access windows matching patterns | `["*password*", "*bank*"]` |
+| `allow-content-types` | List | Restrict to specific data types | `["ocr", "audio"]` |
+| `time-range` | String | Only access data from time range | `"09:00-18:00"` |
+| `days` | List | Only access data from these days | `["Mon", "Tue", "Wed"]` |
+| `allow-raw-sql` | Boolean | Allow direct database queries | `false` |
+| `allow-frames` | Boolean | Allow screenshot access | `false` |
+
+**Content types**:
+- `ocr` - Text extracted from screen
+- `audio` - Transcribed audio
+- `input` - Keyboard/mouse events
+- `accessibility` - Accessibility tree data
+
+## Privacy Boundary
+
+**What admins control**:
+- What gets captured (apps, schedules, URLs)
+- What AI agents can access (per-pipe permissions)
+- Which pipes are deployed team-wide
+
+**What admins CANNOT see**:
+- Actual screen content from employee devices
+- OCR text or audio transcriptions
+- Search queries or timeline activity
+- Any PII from employee screens
+
+**Privacy model**:
+```
+┌──────────────────────────────────────┐
+│        Admin Console (Cloud)         │
+│                                      │
+│  Can see:                            │
+│  - Config settings                   │
+│  - Pipe definitions                  │
+│  - Aggregate metrics (if enabled)    │
+│                                      │
+│  Cannot see:                         │
+│  - Screen content                    │
+│  - Actual captured data              │
+│  - Employee activity                 │
+└──────────────────────────────────────┘
+                │
+                │ encrypted config push
+                ▼
+┌──────────────────────────────────────┐
+│       Employee Device (Local)        │
+│                                      │
+│  - Captures screen/audio             │
+│  - Stores in local SQLite            │
+│  - Runs AI pipes with permissions    │
+│  - Data never sent to cloud*         │
+└──────────────────────────────────────┘
+
+* Unless employee explicitly enables cloud sync
+```
+
+## MDM Deployment
+
+screenpipe Teams is ready for enterprise deployment via MDM:
+
+### Supported MDM Platforms
+
+- **Microsoft Intune** (Windows, macOS)
+- **Microsoft SCCM** (Windows)
+- **Jamf Pro** (macOS)
+- **Kandji** (macOS)
+- **Mosyle** (macOS)
+- **Robopack** (Cross-platform)
+- **Custom MDM** (via API)
+
+### Deployment Package
+
+screenpipe provides a preconfigured installer for MDM:
+
+**Windows**:
+```powershell
+# Silent install with org config
+screenpipe-teams.exe /S /ORG_TOKEN="your-org-token"
+```
+
+**macOS**:
+```bash
+# PKG installer for Jamf/Kandji
+sudo installer -pkg screenpipe-teams.pkg -target / \
+  -applyChoiceChangesXML /path/to/org-config.xml
+```
+
+**Linux**:
+```bash
+# Debian/Ubuntu
+sudo dpkg -i screenpipe-teams.deb
+sudo screenpipe-teams config --org-token "your-org-token"
+
+# RHEL/Fedora
+sudo rpm -i screenpipe-teams.rpm
+sudo screenpipe-teams config --org-token "your-org-token"
+```
+
+### First-Run Behavior
+
+1. App launches with org config pre-applied
+2. Employee sees onboarding with privacy policy
+3. Permissions requested (screen recording, accessibility)
+4. Background recording starts automatically
+5. Shared pipes installed and enabled
+6. Admin console shows device as "Active"
+
+### Update Management
+
+Auto-updates can be controlled via MDM:
+
+```json
+{
+  "auto_update": true,
+  "update_channel": "stable",
+  "update_schedule": "weekly",
+  "allowed_update_hours": "18:00-06:00"
+}
+```
+
+## Admin Console
+
+The Teams admin console provides centralized management:
+
+### Dashboard
+
+- **Active devices**: Number of employees with screenpipe running
+- **Pipe health**: Success rate of shared pipes
+- **Storage usage**: Total data captured across org
+- **Compliance status**: Devices meeting org policy
+
+### Device Management
+
+- View all enrolled devices
+- See last active timestamp
+- Remotely update config
+- Revoke device access
+- View device-specific logs (with employee permission)
+
+### Pipe Library
+
+Manage shared pipes for your organization:
+
+1. **Create pipe**: Write `pipe.md` with permissions
+2. **Test**: Deploy to test group
+3. **Publish**: Roll out to all devices
+4. **Monitor**: Track execution success rate
+5. **Update**: Push updates instantly
+
+### Audit Logs
+
+Track admin actions and policy changes:
+
+- Config changes (who, when, what)
+- Pipe deployments
+- Device enrollments/revocations
+- Permission escalations (if employee requests override)
+
+<Note>
+Audit logs are available for compliance requirements (SOC 2, HIPAA, GDPR).
+</Note>
+
+## Use Cases
+
+### Software Development Team
+
+**Goal**: Automatically track time on projects and generate standups
+
+**Config**:
+```yaml
+capture:
+  allow-apps:
+    - "VS Code"
+    - "IntelliJ IDEA"
+    - "Terminal"
+    - "Chrome"
+    - "Slack"
+  schedule:
+    days: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    hours: "09:00-18:00"
+```
+
+**Pipes**:
+- `daily-standup`: Summarize coding activity for standup
+- `time-tracker`: Log hours by project from window titles
+- `code-review-prep`: Extract changes for review context
+
+### Customer Support Team
+
+**Goal**: Track ticket resolution time and training opportunities
+
+**Config**:
+```yaml
+capture:
+  allow-apps:
+    - "Zendesk"
+    - "Intercom"
+    - "Slack"
+    - "Chrome"
+  deny-windows:
+    - "*gmail*"  # Block personal email
+```
+
+**Pipes**:
+- `ticket-timer`: Auto-log time spent per ticket
+- `knowledge-extractor`: Index solutions for internal wiki
+- `coaching-insights`: Identify training opportunities
+
+### Sales Team
+
+**Goal**: CRM auto-update and meeting follow-ups
+
+**Config**:
+```yaml
+capture:
+  allow-apps:
+    - "Salesforce"
+    - "Zoom"
+    - "Gmail"
+    - "Chrome"
+  allow-content-types:
+    - "audio"  # Meeting transcripts
+    - "ocr"    # CRM fields
+```
+
+**Pipes**:
+- `meeting-summary`: Transcribe and summarize sales calls
+- `crm-update`: Extract action items and update Salesforce
+- `follow-up-reminders`: Create tasks for post-meeting follow-ups
+
+## Enterprise Features
+
+### SSO/SAML Integration
+
+Integrate with your identity provider:
+
+- **Supported providers**: Okta, Azure AD, Google Workspace, OneLogin
+- **SAML 2.0**: Standard enterprise SSO
+- **SCIM provisioning**: Auto-provision users from directory
+- **Group sync**: Map AD groups to screenpipe teams
+
+### Compliance
+
+screenpipe Teams supports common compliance requirements:
+
+- **SOC 2 Type II**: Available on request
+- **HIPAA**: BAA available for healthcare
+- **GDPR**: EU data residency options
+- **CCPA**: California privacy compliance
+- **ISO 27001**: Security certification
+
+### SLA
+
+Enterprise SLA guarantees:
+
+- **99.9% uptime**: For cloud sync and admin console
+- **4-hour response**: For critical issues
+- **Dedicated support**: Direct Slack channel with engineering
+- **Custom development**: For enterprise-specific features
+
+## Pricing
+
+Teams pricing is custom based on:
+
+- Number of seats
+- Required compliance certifications
+- On-premise vs cloud deployment
+- Support tier
+
+Contact [sales@screenpi.pe](mailto:sales@screenpi.pe) or see [screenpi.pe/team](https://screenpi.pe/team).
+
+## Migration
+
+### From Individual to Teams
+
+1. Existing users keep their local data
+2. Admin enrolls devices in Teams org
+3. Central config merges with local settings
+4. Shared pipes deployed automatically
+5. Employees can opt into org cloud sync
+
+### From Other Tools
+
+Migrating from Rewind, Microsoft Recall, or similar:
+
+1. Export data from existing tool (if possible)
+2. Deploy screenpipe via MDM
+3. Import historical data (format conversion available)
+4. Configure pipes to match existing workflows
+
+## Troubleshooting
+
+### Device Not Appearing in Console
+
+- Verify org token is correct
+- Check network connectivity
+- Ensure screenpipe service is running
+- Review device logs: `~/.screenpipe/teams.log`
+
+### Pipe Failing on Some Devices
+
+- Check pipe permissions for device-specific apps
+- Verify AI provider credentials
+- Review pipe execution logs in device settings
+- Test pipe locally before deploying team-wide
+
+### Config Not Applying
+
+- Force sync: Settings → Teams → "Pull Latest Config"
+- Check for employee overrides that conflict
+- Verify MDM profile is active
+- Restart screenpipe service
+
+## Security Best Practices
+
+<Warning>
+**Recommendations for Teams deployments**:
+
+1. **Principle of least privilege**: Only capture what's necessary
+2. **Regular audits**: Review pipe permissions quarterly
+3. **Employee training**: Educate team on privacy protections
+4. **Incident response**: Have a plan for handling permission violations
+5. **Data retention**: Set clear policies for how long data is kept
+6. **Exit process**: Ensure data is wiped when employees leave
+</Warning>
+
+## API Access
+
+Teams admin console exposes a REST API:
+
+```bash
+# List all devices
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  https://api.screenpi.pe/v1/teams/devices
+
+# Push config update
+curl -X POST \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"capture": {"schedule": "09:00-17:00"}}' \
+  https://api.screenpi.pe/v1/teams/config
+
+# Deploy pipe
+curl -X POST \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d @pipe.md \
+  https://api.screenpi.pe/v1/teams/pipes
+```
+
+## Related Resources
+
+- [Privacy & Security](/advanced/privacy-security) - Understand the privacy model
+- [Cloud Sync](/advanced/cloud-sync) - Optional encrypted sync
+- [Performance](/advanced/performance) - Optimize for team deployments

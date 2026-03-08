@@ -1,0 +1,244 @@
+---
+title: 'Screenpipe vs Limitless'
+description: 'Comparison between screenpipe and Limitless (formerly Rewind.ai)'
+---
+
+# Screenpipe vs Limitless
+
+<Note>
+Limitless is the new name for Rewind.ai. This comparison covers the current Limitless product.
+</Note>
+
+## Overview
+
+Limitless focuses on meeting transcription and AI memory, while screenpipe provides comprehensive screen and audio capture with full developer access.
+
+## Core Philosophy
+
+**screenpipe:**
+- Open source and transparent
+- Local-first, privacy-focused
+- Developer-friendly with full API
+- Cross-platform from day one
+
+**Limitless:**
+- Proprietary, closed source
+- Cloud-dependent
+- Consumer-focused experience
+- Limited platform support
+
+## Key Differences
+
+### Screen Capture Approach
+
+**screenpipe:**
+- **Multi-monitor**: Captures all connected monitors
+- **Event-driven**: Only captures when something changes
+- **Storage efficient**: ~5-10 GB per month
+- **Full context**: Entire screen estate captured
+
+**Limitless:**
+- **Single window**: Active window only
+- **Continuous**: Always recording
+- **Higher storage**: More disk space needed
+- **Limited context**: Misses background activity
+
+<Warning>
+Limitless only captures the active window, meaning you'll miss important context from background applications, second monitors, and reference materials.
+</Warning>
+
+### Audio & Meeting Features
+
+**screenpipe:**
+- System audio (what you hear)
+- Microphone input (what you say)
+- Local Whisper transcription
+- Works with any app (Zoom, Meet, Teams, Slack)
+- Speaker identification
+- Offline capable
+
+**Limitless:**
+- Meeting transcription focus
+- Cloud-based processing
+- Integrated calendar features
+- Meeting summaries
+- Requires internet connection
+
+### Privacy & Data Control
+
+| Aspect | screenpipe | Limitless |
+|--------|-----------|----------|
+| Source code | ✅ Open (MIT) | ❌ Closed |
+| Data storage | 100% local | Cloud required |
+| AI processing | Local or cloud (your choice) | Cloud only |
+| Account required | No | Yes |
+| Data export | Full export via API | Limited |
+| Self-hosting | Possible | Not available |
+
+<Tip>
+With screenpipe, you can run everything locally including AI processing via Ollama - no internet required, no data leaves your device.
+</Tip>
+
+### Developer & Integration Features
+
+**screenpipe:**
+- ✅ Full REST API
+- ✅ JavaScript/TypeScript SDK
+- ✅ MCP server (Claude, Cursor, Cline)
+- ✅ Plugin system (Pipes - AI agents)
+- ✅ Raw SQL access
+- ✅ Webhook support
+- ✅ Open integration ecosystem
+
+**Limitless:**
+- ❌ Limited API (closed beta)
+- ❌ No SDK
+- ❌ No plugin system
+- ❌ Proprietary integrations only
+
+**Example screenpipe API usage:**
+```javascript
+import { pipe } from "@screenpipe/js";
+
+const results = await pipe.queryScreenpipe({
+  q: "project deadline",
+  contentType: "all",
+  limit: 20,
+  startTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+});
+```
+
+### Platform Support
+
+**screenpipe:**
+- ✅ macOS (Apple Silicon)
+- ✅ macOS (Intel)
+- ✅ Windows 10/11
+- ✅ Linux
+
+**Limitless:**
+- ✅ macOS
+- ✅ Windows
+- ❌ Linux
+
+### AI Model Flexibility
+
+**screenpipe:**
+- Use any AI model
+- Local AI via Ollama (Llama, Mistral, etc.)
+- Cloud AI (OpenAI, Anthropic, Gemini)
+- Custom fine-tuned models
+- Switch models anytime
+
+**Limitless:**
+- Proprietary AI models
+- No model choice
+- Vendor lock-in
+
+### Team & Enterprise Features
+
+**screenpipe Teams:**
+- Central config management
+- Shared AI pipes (workflows)
+- Per-pipe data permissions (YAML-based)
+- Employees' data stays on their devices
+- MDM deployment (Intune, SCCM)
+- Admin dashboard
+- Privacy boundaries
+
+**Limitless:**
+- Limited team features
+- Data centralized in cloud
+- No granular permissions
+
+<Note>
+With screenpipe Teams, admins control what gets captured and what AI can access, but the actual data never leaves employee devices - providing both control and privacy.
+</Note>
+
+## Feature Comparison Table
+
+| Feature | screenpipe | Limitless |
+|---------|-----------|----------|
+| **Architecture** |
+| Open source | ✅ MIT | ❌ Closed |
+| Local-first | ✅ | ❌ |
+| **Capture** |
+| Multi-monitor | ✅ All | ❌ Active only |
+| Event-driven | ✅ | ❌ |
+| Audio transcription | ✅ Local | ✅ Cloud |
+| Offline mode | ✅ | ❌ |
+| **Developer** |
+| Full API | ✅ | Limited |
+| SDK | ✅ | ❌ |
+| MCP server | ✅ | ❌ |
+| Plugins | ✅ Pipes | ❌ |
+| Raw data access | ✅ SQL | ❌ |
+| **AI** |
+| Model choice | ✅ Any | ❌ Proprietary |
+| Local AI | ✅ Ollama | ❌ |
+| **Platform** |
+| macOS | ✅ | ✅ |
+| Windows | ✅ | ✅ |
+| Linux | ✅ | ❌ |
+| **Teams** |
+| Central config | ✅ | ❌ |
+| Data permissions | ✅ Per-pipe | ❌ |
+| On-device storage | ✅ | ❌ |
+| **Pricing** |
+| One-time option | ✅ $400 | ❌ |
+| Subscription | Optional $39/mo | Required |
+
+## Pricing Comparison
+
+**screenpipe:**
+- **Lifetime**: $400 one-time - all features forever
+- **Pro (optional)**: $39/month - cloud sync, priority support
+- **Teams**: Custom pricing
+- No lock-in, no recurring costs required
+
+**Limitless:**
+- Monthly subscription required (pricing varies)
+- No one-time purchase option
+- Ongoing costs mandatory for access
+
+## Use Cases
+
+### Choose screenpipe if you:
+- Need multi-monitor support
+- Want full control over your data
+- Require API access for integrations
+- Build custom automations
+- Prefer local AI processing
+- Want open source transparency
+- Need team deployment with granular permissions
+- Prefer one-time purchase over subscription
+- Use Linux
+
+### Consider Limitless if you:
+- Only need active window capture
+- Prefer fully managed cloud solution
+- Don't need developer features
+- Want zero-setup experience
+- Focus primarily on meeting transcription
+- Comfortable with subscription model
+- Don't need multi-monitor support
+
+## Migration from Limitless
+
+If you're considering switching from Limitless to screenpipe:
+
+1. **Export your data** from Limitless (if available)
+2. **Install screenpipe** from [screenpi.pe/onboarding](https://screenpi.pe/onboarding)
+3. **Configure capture settings** for your monitors and audio
+4. **Set up AI integrations** using your preferred model (Ollama, OpenAI, etc.)
+5. **Explore Pipes** to replicate any workflows you had
+
+<Tip>
+Join our [Discord community](https://discord.gg/screenpipe) for migration support and tips from users who've made the switch.
+</Tip>
+
+---
+
+**Ready to try screenpipe?**
+
+[Download the app](https://screenpi.pe/onboarding) · [View documentation](/) · [Join Discord](https://discord.gg/screenpipe)

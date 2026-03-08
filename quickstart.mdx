@@ -1,80 +1,304 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get screenpipe running in under 5 minutes
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
+This guide will take you from zero to your first working screenpipe setup:
 
-### Step 1: Set up your local environment
+1. Install screenpipe
+2. Start recording
+3. View your timeline
+4. Search your data
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+Total time: **5 minutes**
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  This quickstart uses the desktop app. For CLI installation, see the [Installation guide](/installation).
 </Note>
+
+## Step 1: Install screenpipe
+
+<Steps>
+  <Step title="Download the desktop app">
+    Visit [screenpi.pe/onboarding](https://screenpi.pe/onboarding) and download the installer for your platform:
+    
+    - **macOS**: `.dmg` installer (Apple Silicon and Intel)
+    - **Windows**: `.exe` installer (Windows 10/11)
+    - **Linux**: Build from source (see [Installation](/installation))
+  </Step>
+
+  <Step title="Install and launch">
+    <Tabs>
+      <Tab title="macOS">
+        1. Open the downloaded `.dmg` file
+        2. Drag screenpipe to your Applications folder
+        3. Launch screenpipe from Applications
+        4. If you see a security warning, go to System Settings > Privacy & Security and click "Open Anyway"
+      </Tab>
+      <Tab title="Windows">
+        1. Run the downloaded `.exe` installer
+        2. Follow the installation wizard
+        3. Launch screenpipe from the Start menu
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Grant permissions">
+    screenpipe needs certain permissions to function:
+    
+    <Tabs>
+      <Tab title="macOS">
+        - **Screen Recording**: Required to capture your screen
+        - **Accessibility**: Required to extract text from accessibility trees
+        - **Microphone** (optional): For audio transcription
+        
+        The app will guide you through granting these permissions on first launch.
+      </Tab>
+      <Tab title="Windows">
+        Windows may prompt you to allow screenpipe through the firewall. Click "Allow access" to enable the local API server.
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+## Step 2: Start Recording
+
+<Steps>
+  <Step title="Configure capture settings">
+    On first launch, you'll see the settings screen:
+    
+    - **Monitors**: Select which monitors to capture (all selected by default)
+    - **Audio**: Toggle microphone and system audio capture
+    - **Sensitivity**: Choose Low, Medium (default), or High capture sensitivity
+    
+    <Info>
+      Low sensitivity uses less resources (ideal for laptops), while High sensitivity captures more frequently for maximum recall.
+    </Info>
+  </Step>
+
+  <Step title="Start recording">
+    Click the **"Start Recording"** button. screenpipe will begin capturing your screen and audio in the background.
+    
+    You'll see a status indicator in your system tray (macOS menu bar or Windows taskbar):
+    - **Green dot**: Recording active
+    - **Red dot**: Recording paused or stopped
+    - **Yellow dot**: Recording but with warnings
+  </Step>
+
+  <Step title="Let it record">
+    Use your computer normally for a few minutes. screenpipe will:
+    
+    - Capture screenshots when you switch apps, click, type, or scroll
+    - Extract text from your screen using accessibility APIs (with OCR fallback)
+    - Transcribe any audio if you enabled audio capture
+    - Store everything locally in `~/.screenpipe/` (macOS/Linux) or `%APPDATA%\screenpipe\` (Windows)
+  </Step>
+</Steps>
+
+## Step 3: View Your Timeline
+
+<Steps>
+  <Step title="Open the timeline view">
+    Click on the screenpipe icon in your system tray and select **"Timeline"** (or open the main app window).
+  </Step>
+
+  <Step title="Explore your activity">
+    The timeline view shows:
+    
+    - **Visual timeline**: Scroll through screenshots of your activity
+    - **Timestamp**: Exact time each capture was taken
+    - **App/Window**: Which application and window was active
+    - **Trigger**: What triggered the capture (app switch, click, typing pause, etc.)
+    
+    <Info>
+      Click any screenshot to see the full-resolution image and extracted text.
+    </Info>
+  </Step>
+
+  <Step title="Filter by time range">
+    Use the time range selector to jump to specific periods:
+    
+    - Last hour
+    - Last 24 hours
+    - Last 7 days
+    - Custom date/time range
+  </Step>
+</Steps>
+
+## Step 4: Search Your Data
+
+<Steps>
+  <Step title="Open search">
+    Click the search icon or press `Cmd+K` (macOS) / `Ctrl+K` (Windows) to open the search interface.
+  </Step>
+
+  <Step title="Try a natural language query">
+    Type a search query in plain English:
+    
+    <CodeGroup>
+    ```text Example Queries
+    # Search for text you saw
+    meeting notes about the budget
+    
+    # Search audio transcriptions
+    what did John say about the database
+    
+    # Search by application
+    slack messages about the project
+    
+    # Search by time
+    emails I read this morning
+    ```
+    </CodeGroup>
+    
+    <Info>
+      screenpipe searches both visual text (OCR and accessibility) and audio transcriptions.
+    </Info>
+  </Step>
+
+  <Step title="Review results">
+    Search results show:
+    
+    - **Screenshot thumbnail**: Visual context of where the text appeared
+    - **Extracted text**: The actual text found (highlighted)
+    - **Timestamp**: When it was captured
+    - **App/Window**: Which application it came from
+    
+    Click any result to see the full screenshot and surrounding context.
+  </Step>
+</Steps>
+
+## Next Steps: Use the API
+
+Now that screenpipe is recording, you can query your data programmatically:
+
+<CodeGroup>
+```bash cURL
+# Search for content from the last 5 minutes
+curl "http://localhost:3030/search?q=meeting&content_type=all&limit=10"
+```
+
+```javascript JavaScript/TypeScript
+import { ScreenpipeClient } from "@screenpipe/js";
+
+const client = new ScreenpipeClient();
+
+// Get content from last 5 minutes
+const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+const results = await client.search({
+  startTime: fiveMinutesAgo,
+  limit: 10,
+  contentType: "all", // "ocr", "audio", "input", "accessibility", or "all"
+});
+
+console.log(`Found ${results.pagination.total} items`);
+
+for (const item of results.data) {
+  console.log(`Type: ${item.type}`);
+  console.log(`Timestamp: ${item.content.timestamp}`);
+  console.log(`Content: ${JSON.stringify(item.content)}`);
+}
+```
+
+```python Python
+import requests
+from datetime import datetime, timedelta
+
+# Search for content from the last hour
+start_time = (datetime.now() - timedelta(hours=1)).isoformat()
+
+response = requests.get(
+    "http://localhost:3030/search",
+    params={
+        "q": "project",
+        "start_time": start_time,
+        "content_type": "all",
+        "limit": 20
+    }
+)
+
+results = response.json()
+print(f"Found {results['pagination']['total']} items")
+
+for item in results['data']:
+    print(f"Type: {item['type']}")
+    print(f"Timestamp: {item['content']['timestamp']}")
+```
+</CodeGroup>
+
+<Info>
+  The screenpipe API runs on `localhost:3030` by default. See the [API Reference](/api/introduction) for all available endpoints.
+</Info>
+
+## Example Use Cases
+
+Now that you have screenpipe running, here are some things you can do:
+
+<CardGroup cols={2}>
+  <Card title="AI Context" icon="brain">
+    Give AI assistants (Claude, ChatGPT, Cursor) context about what you're working on using the MCP server
+  </Card>
+  <Card title="Meeting Notes" icon="notes">
+    Automatically transcribe and summarize meetings with the meeting-summary pipe
+  </Card>
+  <Card title="Time Tracking" icon="clock">
+    Generate time breakdowns by app and project
+  </Card>
+  <Card title="Idea Tracker" icon="lightbulb">
+    Surface startup ideas from your browsing and market trends
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Recording not starting">
+    - Check that you've granted all required permissions (Screen Recording and Accessibility on macOS)
+    - Look for error messages in the app or system tray icon
+    - Try restarting the app
+  </Accordion>
+
+  <Accordion title="Search returns no results">
+    - Make sure recording has been running for at least a few minutes
+    - Check that the time range in your search includes the period when you were active
+    - Try a broader search query
+  </Accordion>
+
+  <Accordion title="High CPU usage">
+    - Lower the capture sensitivity in settings (Low uses ~5% CPU)
+    - Disable audio transcription if you don't need it
+    - Exclude certain monitors from capture if you have 3+ displays
+  </Accordion>
+
+  <Accordion title="API connection errors">
+    - Make sure the screenpipe app is running
+    - Check that port 3030 is not blocked by a firewall
+    - Try accessing http://localhost:3030/health in your browser
+  </Accordion>
+</AccordionGroup>
+
+## Learn More
+
+<CardGroup cols={3}>
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed installation for all platforms
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    How screenpipe works under the hood
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Complete API documentation
+  </Card>
+  <Card title="Pipes" icon="pipe" href="/pipes">
+    Automate with AI agent plugins
+  </Card>
+  <Card title="MCP Server" icon="plug" href="/mcp">
+    Connect AI assistants to screenpipe
+  </Card>
+  <Card title="Join Discord" icon="discord" href="https://discord.gg/screenpipe">
+    Get help from the community
+  </Card>
+</CardGroup>

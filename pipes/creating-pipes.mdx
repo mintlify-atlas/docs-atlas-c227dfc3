@@ -1,0 +1,446 @@
+---
+title: Creating Your First Pipe
+description: Step-by-step guide to writing, testing, and deploying pipes
+---
+
+This guide walks you through creating a simple pipe from scratch, then building progressively more complex examples.
+
+## Quick start
+
+A pipe is just a markdown file in `~/.screenpipe/pipes/{pipe_name}/pipe.md`.
+
+<Steps>
+  <Step title="Create the directory">
+    ```bash
+    mkdir -p ~/.screenpipe/pipes/my-first-pipe
+    cd ~/.screenpipe/pipes/my-first-pipe
+    ```
+  </Step>
+
+  <Step title="Write pipe.md">
+    Create `pipe.md` with YAML frontmatter and a prompt:
+
+    ```markdown
+    ---
+    schedule: every 1h
+    enabled: true
+    ---
+
+    Query screenpipe for the last hour of activity and write a short summary to ./output/summary.txt.
+
+    ## Search API
+
+    ```
+    GET http://localhost:3030/search?content_type=ocr&start_time=ISO8601_TIMESTAMP&end_time=ISO8601_TIMESTAMP&limit=100
+    ```
+
+    Full API reference: API documentation (see /api/introduction)
+
+    ## Output
+
+    Write a plain text file to `./output/summary.txt` with:
+    - Top 3 apps used
+    - Key activities (meetings, coding, browsing)
+    - Any action items or todos spotted
+    ```
+  </Step>
+
+  <Step title="Test manually">
+    Open the screenpipe app and run your pipe manually:
+    
+    1. Go to **Pipes** tab
+    2. Find `my-first-pipe` in the list
+    3. Click **Run now**
+    4. Watch the logs in real-time
+    5. Check `~/.screenpipe/pipes/my-first-pipe/output/summary.txt`
+  </Step>
+
+  <Step title="Enable scheduling">
+    If the test run succeeded, the pipe will now run automatically every hour.
+    
+    To disable: set `enabled: false` in the frontmatter or toggle in the UI.
+  </Step>
+</Steps>
+
+## Pipe anatomy
+
+Every pipe has two parts:
+
+### 1. YAML frontmatter
+
+Defines scheduling, AI model, and data permissions:
+
+```yaml
+---
+schedule: every 30m       # "manual", "every Xm/Xh", or cron expression
+enabled: true             # false = won't run automatically
+model: claude-haiku-4-5   # AI model to use (optional, defaults to haiku)
+provider: native-ollama   # "pi", "native-ollama", "openai", "custom" (optional)
+preset: work-hours        # Use a saved preset (overrides model + provider)
+
+# Data permissions (optional, see /pipes/data-permissions)
+allow-apps: ["Slack", "Notion", "VS Code"]
+deny-apps: ["1Password", "Signal"]
+deny-windows: ["*incognito*", "*bank*"]
+allow-content-types: ["ocr", "audio"]
+time-range: "09:00-18:00"
+days: "Mon,Tue,Wed,Thu,Fri"
+allow-raw-sql: false
+allow-frames: false
+---
+```
+
+### 2. Prompt body
+
+Instructions for the AI agent:
+
+```markdown
+You are a daily activity summarizer.
+
+## Task
+
+1. Query screenpipe API for the last 24 hours
+2. Synthesize activities into categories (meetings, coding, research, admin)
+3. Extract action items and todos
+4. Write a markdown report to ./output/daily-log.md
+
+## Search API
+
+Full API reference: API documentation (see /api/introduction)
+
+...
+```
+
+## Schedules
+
+### Manual
+```yaml
+schedule: manual
+```
+Only runs when triggered manually via UI or API.
+
+### Interval
+```yaml
+schedule: every 30m  # every N minutes
+schedule: every 2h   # every N hours
+```
+Runs at fixed intervals. First run happens immediately after enabling.
+
+### Cron
+```yaml
+schedule: "0 9 * * *"   # Every day at 9:00 AM
+schedule: "0 */2 * * *" # Every 2 hours on the hour
+schedule: "0 0 * * MON" # Every Monday at midnight
+```
+Standard cron syntax. Uses local timezone.
+
+## AI models
+
+Pipes support any LLM:
+
+<CodeGroup>
+```yaml Anthropic (default)
+model: claude-haiku-4-5
+provider: pi  # Uses screenpipe cloud API or your own key
+```
+
+```yaml Ollama (local)
+model: llama3.2
+provider: native-ollama
+# Requires Ollama running on localhost:11434
+```
+
+```yaml OpenAI
+model: gpt-4o-mini
+provider: openai
+# Set OPENAI_API_KEY env var or use screenpipe cloud
+```
+
+```yaml Custom endpoint
+model: your-model-name
+provider: custom
+# Configure endpoint in app settings → AI Providers
+```
+</CodeGroup>
+
+### Using presets
+
+Instead of hardcoding model + provider, reference a saved preset:
+
+```yaml
+preset: work-hours  # Defined in app settings
+```
+
+Presets are resolved at queue time and snapshotted — changing the preset after queueing won't affect running executions.
+
+## Querying screenpipe
+
+Your prompt has access to the screenpipe REST API on `http://localhost:3030`.
+
+### Search endpoint
+
+The main endpoint pipes use:
+
+```http
+GET /search?content_type=<type>&start_time=<ISO8601>&end_time=<ISO8601>&limit=100
+```
+
+Parameters:
+- `content_type`: `ocr`, `audio`, `input`, `accessibility`, or `all`
+- `start_time`, `end_time`: ISO 8601 timestamps (e.g., `2026-03-08T10:00:00Z`)
+- `limit`: Max results (default 50, max 1000)
+- `offset`: Pagination offset
+- `q`: Keyword search (optional)
+- `app_name`: Filter by app (optional)
+- `window_name`: Filter by window title (optional)
+- `min_length`: Skip short OCR fragments (recommended: 50)
+
+<Accordion title="Example response">
+```json
+{
+  "data": [
+    {
+      "type": "OCR",
+      "content": {
+        "frame_id": 12345,
+        "text": "export function queryScreenpipe(...",
+        "timestamp": "2026-03-08T10:30:00Z",
+        "file_path": "/path/to/frame.png",
+        "app_name": "VS Code",
+        "window_name": "screenpipe-js/index.ts",
+        "tags": ["coding"]
+      }
+    },
+    {
+      "type": "Audio",
+      "content": {
+        "chunk_id": 67890,
+        "transcription": "Let's review the API changes...",
+        "timestamp": "2026-03-08T10:32:00Z",
+        "speaker_name": "Alice",
+        "device_name": "MacBook Pro Microphone"
+      }
+    }
+  ],
+  "pagination": {
+    "limit": 100,
+    "offset": 0,
+    "total": 234
+  }
+}
+```
+</Accordion>
+
+### Query strategies
+
+<Accordion title="Time chunking (recommended)">
+For pipes covering long time ranges, query in chunks to avoid overwhelming context:
+
+```markdown
+1. Query in 30-minute chunks from start_time to end_time
+2. For each chunk, query separately:
+   - content_type=ocr&min_length=50
+   - content_type=audio
+   - content_type=input
+3. Synthesize results incrementally
+```
+
+This prevents context overflow and gives richer results.
+</Accordion>
+
+<Accordion title="Pagination for large results">
+If a single query returns `total > limit`, paginate:
+
+```markdown
+1. Query with limit=100, offset=0
+2. If total > 100, query again with offset=100
+3. Repeat until offset >= total
+```
+</Accordion>
+
+<Accordion title="Multi-modal queries">
+Query each content type separately for richer context:
+
+```markdown
+1. OCR: What was on screen
+2. Audio: What was said
+3. Input: What was typed, clicked, copied
+4. Accessibility: UI elements interacted with
+```
+
+Combining results gives a fuller picture than `content_type=all`.
+</Accordion>
+
+## Writing output
+
+Pipes should write results to the `./output/` directory:
+
+```markdown
+Write your summary to `./output/daily-log.md`.
+```
+
+The AI agent's working directory is `~/.screenpipe/pipes/{pipe_name}/`, so `./output/` resolves to that pipe's output folder.
+
+<Note>
+Each pipe execution should write to a unique file (e.g., timestamped) to avoid overwriting previous runs:
+
+```markdown
+Write to `./output/{YYYY-MM-DD}.md` using today's date.
+```
+</Note>
+
+## External actions
+
+Pipes can do more than read screenpipe data:
+
+### Call external APIs
+
+```markdown
+For each idea, use the `web_search` tool to find:
+- Recent market trends
+- Competing startups
+- Reddit/HN discussions
+```
+
+### Run shell commands
+
+```markdown
+For each actionable item, create an Apple Reminder:
+
+```bash
+osascript -e 'tell application "Reminders" to make new reminder with properties {name:"TITLE"}'
+```
+```
+
+### Write to external services
+
+```markdown
+Write the meeting summary to your Notion database via the Notion API.
+```
+
+<Warning>
+External API calls send data outside your machine. Only use trusted APIs. Data permissions don't restrict external calls — the AI agent can call any API it's instructed to.
+</Warning>
+
+## Best practices
+
+### 1. Start simple
+Test with a short time range (last 30 minutes) before running on 24 hours of data.
+
+### 2. Use min_length for OCR
+Add `min_length=50` to OCR queries to skip noisy fragments:
+
+```http
+GET /search?content_type=ocr&min_length=50&...
+```
+
+### 3. Respect time zones
+Always display times in the user's local timezone:
+
+```markdown
+Use the user's local timezone for all displayed times.
+```
+
+### 4. Handle empty results gracefully
+If the API returns no data, don't fail — write a note:
+
+```markdown
+If no data found, write "No activity in the time range" to output.
+```
+
+### 5. Redact sensitive data
+Never dump raw OCR or transcripts — synthesize into summaries:
+
+```markdown
+Redact passwords, API keys, tokens, credentials.
+Skip banking/financial/medical content — note as "private activity".
+```
+
+### 6. Deduplicate for incremental updates
+For hourly pipes that append to a daily log:
+
+```markdown
+1. Read the existing daily note first (if it exists)
+2. Deduplicate time ranges already in the timeline
+3. Merge new activities without overwriting
+```
+
+### 7. Test with manual runs first
+Always test a pipe manually before enabling the schedule. Check:
+- Does it produce the expected output?
+- Does it handle empty data?
+- Does it run within the 5-minute timeout?
+
+## Debugging
+
+### View logs
+Every execution is logged to:
+
+```
+~/.screenpipe/pipes/{pipe_name}/logs/{timestamp}.json
+```
+
+Logs include:
+- Stdout and stderr from the AI agent
+- Start/end timestamps
+- Exit code
+- Error messages
+
+Or view in the UI: **Pipes** tab → click pipe → **Logs** tab.
+
+### Common issues
+
+<AccordionGroup>
+  <Accordion title="Pipe times out after 5 minutes">
+    Your pipe is doing too much. Solutions:
+    - Query in smaller time chunks
+    - Reduce the time range
+    - Simplify the task
+    - Use a faster model (haiku instead of sonnet)
+  </Accordion>
+
+  <Accordion title="No data returned from API">
+    Check:
+    - Is screenpipe capturing? (Timeline should show activity)
+    - Is your time range correct? (Use ISO 8601 format)
+    - Are data permissions blocking access? (Check frontmatter)
+  </Accordion>
+
+  <Accordion title="AI agent makes mistakes">
+    - Add more specific instructions to your prompt
+    - Include example output format
+    - Use a more capable model (sonnet instead of haiku)
+  </Accordion>
+
+  <Accordion title="Pipe doesn't run on schedule">
+    Check:
+    - `enabled: true` in frontmatter?
+    - Valid schedule format? (`every 30m`, not `30m`)
+    - screenpipe app running?
+    - Logs show any errors?
+  </Accordion>
+
+  <Accordion title="Permission denied errors">
+    The pipe's data permissions are blocking API calls. Either:
+    - Relax permissions in frontmatter (remove `allow-apps`, etc.)
+    - Or adjust the prompt to work within the restrictions
+  </Accordion>
+</AccordionGroup>
+
+## Examples
+
+See [Pipe Examples](/pipes/examples) for complete, working pipes you can copy and customize.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Data Permissions" icon="shield" href="/pipes/data-permissions">
+    Configure fine-grained access control
+  </Card>
+  <Card title="Examples" icon="book-open" href="/pipes/examples">
+    Real pipe examples (Obsidian sync, reminders, etc.)
+  </Card>
+  <Card title="API Reference" icon="terminal" href="API documentation (see /api/introduction)">
+    Complete screenpipe API docs
+  </Card>
+</CardGroup>
